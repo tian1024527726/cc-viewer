@@ -1,5 +1,6 @@
 // LLM Request Interceptor
 // 拦截并记录所有Claude API请求
+import './proxy-env.js';
 import { appendFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync, statSync, renameSync, unlinkSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';

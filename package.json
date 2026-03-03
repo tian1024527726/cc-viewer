@@ -18,6 +18,7 @@
     "dev": "vite",
     "build": "node build.js",
     "start": "node server.js",
+    "test": "node --test",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -38,7 +39,7 @@
   },
   "homepage": "https://github.com/weiesky/cc-viewer#readme",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "files": [
     "dist/",
@@ -46,6 +47,7 @@
     "cli.js",
     "proxy.js",
     "interceptor.js",
+    "proxy-env.js",
     "i18n.js",
     "findcc.js",
     "stats-worker.js",
@@ -69,6 +71,7 @@
   "dependencies": {
     "@xterm/addon-web-links": "^0.12.0",
     "node-pty": "^1.1.0",
+    "undici": "^7.22.0",
     "ws": "^8.19.0"
   }
 }
