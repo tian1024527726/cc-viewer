@@ -25,12 +25,14 @@
   max-height: 60vh;
   overflow-y: auto;
   line-height: 1.7;
+  color: #d9d9d9;
 }
 
 .modalBody h1,
 .modalBody h2,
 .modalBody h3 {
   margin-top: 0.8em;
+  color: #f0f0f0;
 }
 
 .modalBody p {
@@ -42,6 +44,7 @@
   padding: 1px 4px;
   border-radius: 3px;
   font-size: 0.9em;
+  color: #e8ab6a;
 }
 
 .modalBody pre {
@@ -49,6 +52,15 @@
   padding: 12px;
   border-radius: 6px;
   overflow-x: auto;
+  color: #d9d9d9;
+}
+
+.modalBody a {
+  color: #5b9bd5;
+}
+
+.modalBody strong {
+  color: #f0f0f0;
 }
 
 .spinWrap {

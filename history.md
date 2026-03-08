@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.2 (2026-03-08)
+
+- Fix: ConceptHelp modal dark theme — title, text, headings, code, links and close button now use light colors on dark background for mobile readability
+
 ## 1.5.1 (2026-03-08)
 
 - Perf: reduce JSONL log rotation threshold from 300MB to 200MB
