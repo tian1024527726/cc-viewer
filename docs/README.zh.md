@@ -3,6 +3,10 @@
 Claude Code 请求监控系统，实时捕获并可视化展示 Claude Code 的所有 API 请求与响应(原始文本，不做阉割)。方便开发者监控自己的 Context，以便于 Vibe Coding 过程中回顾和排查问题。
 最新版本的 CC-Viewer 还提供了服务器部署web编程的方案，以及移动端编程的工具。欢迎大家在自己的项目中应用，未来也将开放更多插件功能，支持云端部署。
 
+先看有趣的部分，你可以在移动端上看到：
+<img width="1700" height="790" alt="image" src="https://github.com/user-attachments/assets/da3e519f-ff66-4cd2-81d1-f4e131215f6c" />
+(当前版本IOS兼容不是很好，2026.04.01 会针对IOS做优化)
+
 [English](../README.md) | [繁體中文](./README.zh-TW.md) | [한국어](./README.ko.md) | [日本語](./README.ja.md) | [Deutsch](./README.de.md) | [Español](./README.es.md) | [Français](./README.fr.md) | [Italiano](./README.it.md) | [Dansk](./README.da.md) | [Polski](./README.pl.md) | [Русский](./README.ru.md) | [العربية](./README.ar.md) | [Norsk](./README.no.md) | [Português (Brasil)](./README.pt-BR.md) | [ไทย](./README.th.md) | [Türkçe](./README.tr.md) | [Українська](./README.uk.md)
 
 ## 使用方法
@@ -45,16 +49,6 @@ ccv -d
 - **Native Install**：自动检测 `claude` 二进制文件，配置本地透明代理，并设置 Zsh Shell Hook 自动转发流量。
 - 本项目更推荐使用npm方式安装的claude code。
 
-### 配置覆盖 (Configuration Override)
-
-如果您需要使用自定义 API 端点（例如企业代理），只需在 `~/.claude/settings.json` 中配置或设置 `ANTHROPIC_BASE_URL` 环境变量。`ccv` 会自动识别并正确转发请求。
-
-### 静默模式 (Silent Mode)
-
-默认情况下，`ccv` 在包裹 `claude` 运行时处于静默模式，确保您的终端输出保持整洁，与原生体验一致。所有日志都在后台捕获，并可通过 `http://localhost:7008` 查看。
-
-配置完成后，正常使用 `claude` 命令即可。访问 `http://localhost:7008` 查看监控界面。
-
 ### 常见问题排查 (Troubleshooting)
 
 如果你遇到无法启动的问题，有一个终极排查方案：
@@ -78,6 +72,17 @@ ccv --uninstall
 ```bash
 ccv -v
 ```
+
+### 配置覆盖 (Configuration Override)
+
+如果您需要使用自定义 API 端点（例如企业代理），只需在 `~/.claude/settings.json` 中配置或设置 `ANTHROPIC_BASE_URL` 环境变量。`ccv` 会自动识别并正确转发请求。
+
+### 静默模式 (Silent Mode)
+
+默认情况下，`ccv` 在包裹 `claude` 运行时处于静默模式，确保您的终端输出保持整洁，与原生体验一致。所有日志都在后台捕获，并可通过 `http://localhost:7008` 查看。
+
+配置完成后，正常使用 `claude` 命令即可。访问 `http://localhost:7008` 查看监控界面。
+
 
 ## 功能
 
@@ -117,9 +122,6 @@ ccv -v
 
 你甚至可以扫码，实现在移动端设备上编程：
 <img width="3018" height="1460" alt="image" src="https://github.com/user-attachments/assets/8debf48e-daec-420c-b37a-609f8b81cd20" />
-
-移动端上你可以看到：
-<img width="1700" height="790" alt="image" src="https://github.com/user-attachments/assets/da3e519f-ff66-4cd2-81d1-f4e131215f6c" />
 
 满足你对移动端编程的想象，另外还有插件机制，如果你需要针对自己的编程习惯定制，后续可以跟进插件的hooks更新。
 
