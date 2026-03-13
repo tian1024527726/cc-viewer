@@ -1,8 +1,9 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Typography, Empty } from 'antd';
 import { RightOutlined, DownOutlined } from '@ant-design/icons';
 import { renderMarkdown } from '../utils/markdown';
 import { t } from '../i18n';
+import { getContextSidebarArrowNavigation } from '../utils/contextSidebarNavigation';
 import JsonViewer from './JsonViewer';
 import TranslateTag from './TranslateTag';
 import styles from './ContextTab.module.css';
@@ -319,18 +320,54 @@ function TurnContent({ turn }) {
 
 // ── Accordion ─────────────────────────────────────────────────────────────────
 
-function AccordionSection({ title, items, historyItems, onSelect, selectedId }) {
+function AccordionSection({ sectionKey, title, items, historyItems = [], onSelect, onSelectById, selectedId, sidebarRef }) {
   const [open, setOpen] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const totalCount = items.length + (historyItems?.length || 0);
+  const totalCount = items.length + historyItems.length;
+  const historyToggleId = `${sectionKey}__history_toggle`;
+
+  function focusControl(controlId) {
+    const el = sidebarRef.current?.querySelector(`[data-context-sidebar-control="${controlId}"]`);
+    if (!el) return;
+    el.focus();
+    el.scrollIntoView({ block: 'nearest' });
+  }
+
+  function handleControlKeyDown(event, controlId) {
+    const visibleIds = Array.from(
+      sidebarRef.current?.querySelectorAll('[data-context-sidebar-control]') || []
+    ).map((el) => el.dataset.contextSidebarControl).filter(Boolean);
+    const nextId = getContextSidebarArrowNavigation({
+      currentId: controlId,
+      visibleIds,
+      key: event.key,
+    });
+    if (!nextId) return;
+
+    event.preventDefault();
+    if (typeof window !== 'undefined') {
+      window.requestAnimationFrame(() => {
+        focusControl(nextId);
+        const nextEl = sidebarRef.current?.querySelector(`[data-context-sidebar-control="${nextId}"]`);
+        if (nextEl?.dataset.controlType === 'item') {
+          onSelectById(nextId);
+        }
+      });
+    }
+  }
 
   function renderItem(item) {
     const active = selectedId === item.id;
     return (
-      <div
+      <button
+        type="button"
         key={item.id}
         className={`${styles.item} ${active ? styles.itemActive : ''}`}
         onClick={() => onSelect(item)}
+        onKeyDown={(event) => handleControlKeyDown(event, item.id)}
+        aria-current={active ? 'true' : undefined}
+        data-context-sidebar-control={item.id}
+        data-control-type="item"
       >
         <div className={styles.itemContent}>
           <span className={styles.itemLabel}>{item.label}</span>
@@ -339,30 +376,40 @@ function AccordionSection({ title, items, historyItems, onSelect, selectedId }) 
           )}
         </div>
         {item.time && <span className={styles.itemTime}>{item.time}</span>}
-      </div>
+      </button>
     );
   }
 
   return (
     <div className={styles.section}>
-      <div className={styles.sectionHeader} onClick={() => setOpen((v) => !v)}>
+      <button
+        type="button"
+        className={styles.sectionHeader}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
         {open ? <DownOutlined className={styles.arrow} /> : <RightOutlined className={styles.arrow} />}
         <span className={styles.sectionTitle}>{title}</span>
         <span className={styles.sectionCount}>{totalCount}</span>
-      </div>
+      </button>
       {open && (
         <div className={styles.sectionBody}>
-          {historyItems && historyItems.length > 0 && (
+          {historyItems.length > 0 && (
             <>
-              <div
+              <button
+                type="button"
                 className={styles.historyToggle}
                 onClick={() => setHistoryOpen((v) => !v)}
+                onKeyDown={(event) => handleControlKeyDown(event, historyToggleId)}
+                aria-expanded={historyOpen}
+                data-context-sidebar-control={historyToggleId}
+                data-control-type="toggle"
               >
                 {historyOpen ? <DownOutlined className={styles.arrow} /> : <RightOutlined className={styles.arrow} />}
                 <span className={styles.historyToggleLabel}>
                   {t('ui.context.history')} ({historyItems.length})
                 </span>
-              </div>
+              </button>
               {historyOpen && historyItems.map(renderItem)}
             </>
           )}
@@ -377,6 +424,7 @@ function AccordionSection({ title, items, historyItems, onSelect, selectedId }) 
 
 export default function ContextTab({ body, response }) {
   const [selectedItem, setSelectedItem] = useState(null);
+  const sidebarRef = useRef(null);
 
   // Compute turns from messages; override last turn's assistant blocks with actual response.
   const turns = useMemo(() => {
@@ -468,18 +516,29 @@ export default function ContextTab({ body, response }) {
   const currentSelectedItem = selectedItem?.isTurn
     ? (turns.find((turn) => turn.id === selectedItem.id) ?? null)
     : selectedItem;
+  const itemMap = new Map();
+  accordionSections.forEach((section) => {
+    (section.historyItems || []).forEach((item) => itemMap.set(item.id, item));
+    section.items.forEach((item) => itemMap.set(item.id, item));
+  });
 
   return (
     <div className={styles.root}>
-      <div className={styles.sidebar}>
+      <div ref={sidebarRef} className={styles.sidebar}>
         {accordionSections.map((sec) => (
           <AccordionSection
             key={sec.key}
+            sectionKey={sec.key}
             title={sec.title}
             items={sec.items}
             historyItems={sec.historyItems}
             selectedId={currentSelectedItem?.id}
             onSelect={(item) => setSelectedItem(item)}
+            onSelectById={(itemId) => {
+              const nextItem = itemMap.get(itemId);
+              if (nextItem) setSelectedItem(nextItem);
+            }}
+            sidebarRef={sidebarRef}
           />
         ))}
       </div>

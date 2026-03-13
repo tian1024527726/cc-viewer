@@ -23,16 +23,26 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
   padding: 6px 10px;
   cursor: pointer;
   color: #d1d5db;
   font-size: 12px;
   font-weight: 600;
   transition: background 0.15s;
+  background: none;
+  border: 0;
+  text-align: left;
+  font: inherit;
 }
 
 .sectionHeader:hover {
   background: rgba(255, 255, 255, 0.05);
+}
+
+.sectionHeader:focus-visible {
+  outline: 1px solid rgba(99, 179, 237, 0.75);
+  outline-offset: -1px;
 }
 
 .arrow {
@@ -67,16 +77,26 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
   padding: 4px 10px 4px 14px;
   cursor: pointer;
   color: #666;
   font-size: 11px;
   transition: color 0.15s, background 0.15s;
+  background: none;
+  border: 0;
+  text-align: left;
+  font: inherit;
 }
 
 .historyToggle:hover {
   color: #888;
   background: rgba(255, 255, 255, 0.03);
+}
+
+.historyToggle:focus-visible {
+  outline: 1px solid rgba(99, 179, 237, 0.75);
+  outline-offset: -1px;
 }
 
 .historyToggleLabel {
@@ -88,16 +108,26 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   padding: 5px 10px 5px 24px;
   font-size: 12px;
   color: #888;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
+  background: none;
+  border: 0;
+  text-align: left;
+  font: inherit;
 }
 
 .item:hover {
   background: rgba(255, 255, 255, 0.04);
   color: #d1d5db;
+}
+
+.item:focus-visible {
+  outline: 1px solid rgba(99, 179, 237, 0.75);
+  outline-offset: -1px;
 }
 
 .itemActive {
