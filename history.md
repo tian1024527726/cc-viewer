@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.27 (2026-03-13)
+
+- Remove: inflight request detection and display (spinner, tooltip, popover) — feature no longer functional
+- Fix: folder/git-changes sidebar buttons now toggle instead of always-open, and no longer close the file detail panel
+- Fix: hardcoded `http://` protocol in process management port links and server URL parsing — now inherits from browser/server protocol
+
 ## 1.5.26 (2026-03-13)
 
 - Feature: "当前项目" tag replaced with context usage health bar — shows real-time context window consumption with color transitions (green → yellow → red)

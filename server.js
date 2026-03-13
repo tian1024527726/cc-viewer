@@ -366,7 +366,7 @@ function getLocalIp() {
 }
 
 async function handleRequest(req, res) {
-  const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+  const parsedUrl = new URL(req.url, `${serverProtocol}://${req.headers.host}`);
   const url = parsedUrl.pathname;
   const method = req.method;
 
@@ -2015,7 +2015,7 @@ async function setupTerminalWebSocket(httpServer) {
 
 
     httpServer.on('upgrade', (req, socket, head) => {
-      const pathname = new URL(req.url, `http://${req.headers.host}`).pathname;
+      const pathname = new URL(req.url, `${serverProtocol}://${req.headers.host}`).pathname;
       if (pathname === '/ws/terminal') {
         wss.handleUpgrade(req, socket, head, (ws) => {
           wss.emit('connection', ws, req);

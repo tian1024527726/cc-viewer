@@ -1252,11 +1252,10 @@ class ChatView extends React.Component {
         <div className={styles.navSidebar}>
           <button
             className={this.state.fileExplorerOpen ? styles.navBtnActive : styles.navBtn}
-            onClick={() => this.setState({
-              fileExplorerOpen: true,
+            onClick={() => this.setState(prev => ({
+              fileExplorerOpen: !prev.fileExplorerOpen,
               gitChangesOpen: false,
-              currentFile: null
-            })}
+            }))}
             title={t('ui.fileExplorer')}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1265,11 +1264,10 @@ class ChatView extends React.Component {
           </button>
           <button
             className={this.state.gitChangesOpen ? styles.navBtnActive : styles.navBtn}
-            onClick={() => this.setState({
-              gitChangesOpen: true,
+            onClick={() => this.setState(prev => ({
+              gitChangesOpen: !prev.gitChangesOpen,
               fileExplorerOpen: false,
-              currentFile: null
-            })}
+            }))}
             title={t('ui.gitChanges')}
           >
             <svg width="24" height="24" viewBox="0 0 1024 1024" fill="currentColor">

@@ -1,10 +1,10 @@
 import React from 'react';
-import { Space, Tag, Button, Badge, Typography, Dropdown, Popover, Modal, Collapse, Drawer, Switch, Tabs, Spin, Tooltip, Input, Table, message } from 'antd';
+import { Space, Tag, Button, Typography, Dropdown, Popover, Modal, Collapse, Drawer, Switch, Tabs, Spin, Input, Table, message } from 'antd';
 import { MessageOutlined, FileTextOutlined, ImportOutlined, DownOutlined, DashboardOutlined, ExportOutlined, DownloadOutlined, SettingOutlined, BarChartOutlined, CodeOutlined, GlobalOutlined, CopyOutlined, ApiOutlined, DeleteOutlined, ReloadOutlined, PlusOutlined } from '@ant-design/icons';
 import { QRCodeCanvas } from 'qrcode.react';
 import { formatTokenCount, computeTokenStats, computeCacheRebuildStats, computeToolUsageStats, computeSkillUsageStats, getModelMaxTokens } from '../utils/helpers';
 import { isSystemText, classifyUserContent, isMainAgent } from '../utils/contentFilter';
-import { classifyRequest, formatRequestTag } from '../utils/requestType';
+import { classifyRequest } from '../utils/requestType';
 import { t, getLang, setLang } from '../i18n';
 import { apiUrl } from '../utils/apiUrl';
 import ConceptHelp from './ConceptHelp';
@@ -905,30 +905,6 @@ class AppHeader extends React.Component {
             </Tag>
           </Popover>
           {(() => {
-            const INFLIGHT_TIMEOUT = 5 * 60 * 1000; // 5 分钟超时，视为失败请求
-            const now = Date.now();
-            const inflightReqs = isLocalLog ? [] : (requests || []).filter(r =>
-              !r.response && (now - new Date(r.timestamp).getTime()) < INFLIGHT_TIMEOUT
-            );
-            const hasInflight = inflightReqs.length > 0;
-            const liveDot = !isLocalLog ? (
-              hasInflight ? (
-                <svg className={styles.liveSpinner} width="10" height="10" viewBox="0 0 10 10">
-                  <line x1="5" y1="1" x2="5" y2="9" stroke="#52c41a" strokeWidth="1.5" strokeLinecap="round" />
-                  <line x1="1" y1="5" x2="9" y2="5" stroke="#52c41a" strokeWidth="1.5" strokeLinecap="round" />
-                  <line x1="2.2" y1="2.2" x2="7.8" y2="7.8" stroke="#52c41a" strokeWidth="1.5" strokeLinecap="round" className={styles.liveSpinnerDiag} />
-                  <line x1="7.8" y1="2.2" x2="2.2" y2="7.8" stroke="#52c41a" strokeWidth="1.5" strokeLinecap="round" className={styles.liveSpinnerDiag} />
-                </svg>
-              ) : <Badge status="processing" color="green" />
-            ) : null;
-            const noInflightTip = !isLocalLog && !hasInflight;
-            const dotEl = liveDot && (
-              <span className={styles.liveDotWrap}>
-                {noInflightTip
-                  ? <Tooltip title={t('ui.noInflightRequests')} placement="bottom">{liveDot}</Tooltip>
-                  : liveDot}
-              </span>
-            );
             // 计算上下文使用率：距离 auto-compact 触发点的进度
             // auto-compact 在 ~83.5% 时触发（扣除 16.5% buffer）
             // 将 used_percentage 映射到 0~83.5% → 0~100%
@@ -958,44 +934,20 @@ class AppHeader extends React.Component {
             }
             const ctxColor = contextPercent >= 80 ? '#ff4d4f' : contextPercent >= 60 ? '#faad14' : '#52c41a';
 
-            const liveTag = isLocalLog ? (
+            return isLocalLog ? (
               <Tag className={`${styles.liveTag} ${styles.liveTagHistory}`}>
-                {dotEl}
                 <span className={styles.liveTagText}>{t('ui.historyLog', { file: localLogFile })}</span>
               </Tag>
             ) : (
               <span className={styles.liveTag} style={{ borderColor: ctxColor, color: ctxColor }}>
                 <span className={styles.liveTagFill} style={{ width: `${contextPercent}%`, backgroundColor: ctxColor }} />
                 <span className={styles.liveTagContent}>
-                  {dotEl}
                   <span className={styles.liveTagText}>
                     {t('ui.liveMonitoring')}{projectName ? `:${projectName}` : ''}
                   </span>
                 </span>
               </span>
             );
-            if (hasInflight) {
-              const popContent = (
-                <div className={styles.inflightList}>
-                  {inflightReqs.map((req, i) => {
-                    const cls = classifyRequest(req);
-                    const tag = formatRequestTag(cls.type, cls.subType);
-                    const model = req.body?.model || '';
-                    const modelShort = model.includes('-') ? model.split('-').slice(0, 2).join('-') : model;
-                    const time = new Date(req.timestamp).toLocaleTimeString('zh-CN');
-                    return (
-                      <div key={i} className={styles.inflightItem}>
-                        <span className={styles.inflightTag}>{tag}</span>
-                        <span className={styles.inflightModel}>{modelShort}</span>
-                        <span className={styles.inflightTime}>{time}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-              return <Popover content={popContent} title={t('ui.inflightRequests')} placement="bottom">{liveTag}</Popover>;
-            }
-            return liveTag;
           })()}
           {updateInfo && (
             <Tag
@@ -1271,7 +1223,7 @@ class AppHeader extends React.Component {
             size="middle"
             pagination={false}
             columns={[
-              { title: t('ui.processManagement.port'), dataIndex: 'port', width: 80, render: (text) => text ? <a href={`http://127.0.0.1:${text}`} target="_blank" rel="noopener noreferrer">{text}</a> : '' },
+              { title: t('ui.processManagement.port'), dataIndex: 'port', width: 80, render: (text) => text ? <a href={`${window.location.protocol}//127.0.0.1:${text}`} target="_blank" rel="noopener noreferrer">{text}</a> : '' },
               { title: 'PID', dataIndex: 'pid', width: 80 },
               { title: t('ui.processManagement.command'), dataIndex: 'command', ellipsis: true },
               { title: t('ui.processManagement.startTime'), dataIndex: 'startTime', width: 200 },
