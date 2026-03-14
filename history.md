@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.31 (2026-03-14)
+
+- Feature: terminal toolbar with file upload button (PC only) — uploads file to server, writes quoted path to terminal/textarea
+- Feature: upload button in chatInputBar when terminal is hidden
+- Fix: SSE real-time updates broken after client disconnect (clients array reference was replaced instead of mutated in-place)
+- Improve: upload API uses `apiUrl()` for token auth compatibility with LAN/QR access
+- Improve: 50MB upload size limit enforced on both client and server
+- Improve: unique filenames with timestamp suffix to prevent silent overwrite
+- Add: test/upload-api.test.js (7 test cases)
+
 ## 1.5.30 (2026-03-14)
 
 - Fix: QR code popover hardcoded 800px width — now auto-fits content

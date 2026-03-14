@@ -201,6 +201,73 @@ async function handleRequest(req, res) {
   }
 
   // User preferences API
+  // File upload API — save to /tmp/cc-viewer-uploads/
+  if (url === '/api/upload' && method === 'POST') {
+    const contentType = req.headers['content-type'] || '';
+    const boundaryMatch = contentType.match(/boundary=(.+)/);
+    if (!boundaryMatch) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing boundary' }));
+      return;
+    }
+    const MAX_UPLOAD = 50 * 1024 * 1024; // 50MB
+    const contentLength = parseInt(req.headers['content-length'] || '0', 10);
+    if (contentLength > MAX_UPLOAD) {
+      res.writeHead(413, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'File too large (max 50MB)' }));
+      return;
+    }
+    const boundary = boundaryMatch[1];
+    const chunks = [];
+    let totalSize = 0;
+    let aborted = false;
+    req.on('data', chunk => {
+      totalSize += chunk.length;
+      if (totalSize > MAX_UPLOAD) {
+        aborted = true;
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'File too large (max 50MB)' }));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (aborted) return;
+      try {
+        const buf = Buffer.concat(chunks);
+        // Find the first part's headers and body
+        const headerEnd = buf.indexOf('\r\n\r\n');
+        if (headerEnd === -1) throw new Error('Malformed multipart');
+        const headerStr = buf.slice(0, headerEnd).toString();
+        const nameMatch = headerStr.match(/filename="([^"]+)"/);
+        if (!nameMatch) throw new Error('No filename');
+        const originalName = nameMatch[1].replace(/[/\\]/g, '_'); // sanitize
+        const bodyStart = headerEnd + 4;
+        // Find the closing boundary
+        const closingBoundary = Buffer.from('\r\n--' + boundary);
+        const bodyEnd = buf.indexOf(closingBoundary, bodyStart);
+        const fileData = bodyEnd !== -1 ? buf.slice(bodyStart, bodyEnd) : buf.slice(bodyStart);
+        const uploadDir = '/tmp/cc-viewer-uploads';
+        mkdirSync(uploadDir, { recursive: true });
+        // Unique filename: prepend timestamp to avoid silent overwrite
+        const ts = Date.now();
+        const dotIdx = originalName.lastIndexOf('.');
+        const uniqueName = dotIdx > 0
+          ? `${originalName.slice(0, dotIdx)}-${ts}${originalName.slice(dotIdx)}`
+          : `${originalName}-${ts}`;
+        const savePath = join(uploadDir, uniqueName);
+        writeFileSync(savePath, fileData);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, path: savePath }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
   if (url === '/api/preferences' && method === 'GET') {
     let prefs = {};
     try { if (existsSync(PREFS_FILE)) prefs = JSON.parse(readFileSync(PREFS_FILE, 'utf-8')); } catch { }
@@ -618,7 +685,8 @@ async function handleRequest(req, res) {
     }
 
     req.on('close', () => {
-      clients = clients.filter(client => client !== res);
+      const idx = clients.indexOf(res);
+      if (idx !== -1) clients.splice(idx, 1);
     });
     return;
   }

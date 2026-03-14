@@ -3281,6 +3281,26 @@ const i18nData = {
     "ar": "الحالي", "no": "Gjeldende", "pt-BR": "Atual",
     "th": "ปัจจุบัน", "tr": "Mevcut", "uk": "Поточний"
   },
+  "ui.terminal.upload": {
+    "zh": "上传文件",
+    "en": "Upload File",
+    "zh-TW": "上傳檔案",
+    "ko": "파일 업로드",
+    "ja": "ファイルをアップロード",
+    "de": "Datei hochladen",
+    "es": "Subir archivo",
+    "fr": "Télécharger un fichier",
+    "it": "Carica file",
+    "da": "Upload fil",
+    "pl": "Prześlij plik",
+    "ru": "Загрузить файл",
+    "ar": "رفع ملف",
+    "no": "Last opp fil",
+    "pt-BR": "Enviar arquivo",
+    "th": "อัปโหลดไฟล์",
+    "tr": "Dosya yükle",
+    "uk": "Завантажити файл"
+  },
   "ui.editorSession.banner": {
     "zh": "保存好以后，点我回到「终端」界面",
     "en": "After saving, click here to return to Terminal",

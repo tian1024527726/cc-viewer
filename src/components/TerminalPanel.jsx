@@ -6,6 +6,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import '@xterm/xterm/css/xterm.css';
 import { t } from '../i18n';
+import { apiUrl } from '../utils/apiUrl';
 import { isMobile, isIOS } from '../env';
 import styles from './TerminalPanel.module.css';
 
@@ -21,10 +22,32 @@ const VIRTUAL_KEYS = [
   { label: 'Ctrl+C', seq: '\x03' },
 ];
 
+function UploadIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  );
+}
+
+export async function uploadFileAndGetPath(file) {
+  const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+  if (file.size > MAX_SIZE) throw new Error('File too large (max 50MB)');
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(apiUrl('/api/upload'), { method: 'POST', body: form });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Upload failed');
+  return data.path;
+}
+
 class TerminalPanel extends React.Component {
   constructor(props) {
     super(props);
     this.containerRef = React.createRef();
+    this.fileInputRef = React.createRef();
     this.terminal = null;
     this.fitAddon = null;
     this.ws = null;
@@ -510,10 +533,34 @@ class TerminalPanel extends React.Component {
     }
   };
 
+  handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const path = await uploadFileAndGetPath(file);
+      if (this.props.onFilePath) this.props.onFilePath(path);
+      // refocus terminal after upload
+      if (this.terminal) this.terminal.focus();
+    } catch (err) {
+      console.error('[CC Viewer] Upload failed:', err);
+    }
+    // reset so same file can be re-selected
+    e.target.value = '';
+  };
+
   render() {
     return (
       <div className={styles.terminalPanel}>
         <div ref={this.containerRef} className={styles.terminalContainer} />
+        {!isMobile && (
+          <div className={styles.terminalToolbar}>
+            <input type="file" ref={this.fileInputRef} style={{ display: 'none' }} onChange={this.handleFileUpload} />
+            <button className={styles.toolbarBtn} onClick={() => this.fileInputRef.current?.click()} title={t('ui.terminal.upload')}>
+              <UploadIcon />
+              <span>{t('ui.terminal.upload')}</span>
+            </button>
+          </div>
+        )}
         {isMobile && (
           <div className={styles.virtualKeybar}>
             {VIRTUAL_KEYS.map(k => (

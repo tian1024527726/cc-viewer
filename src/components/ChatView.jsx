@@ -1,7 +1,7 @@
 import React from 'react';
 import { Empty, Typography, Divider, Spin } from 'antd';
 import ChatMessage from './ChatMessage';
-import TerminalPanel from './TerminalPanel';
+import TerminalPanel, { uploadFileAndGetPath } from './TerminalPanel';
 import FileExplorer from './FileExplorer';
 import FileContentView from './FileContentView';
 import GitChanges from './GitChanges';
@@ -1390,6 +1390,39 @@ class ChatView extends React.Component {
                       : t('ui.chatInput.hintEnter')}
                   </div>
                 </div>
+                {!isMobile && (
+                  <button
+                    className={styles.chatSendBtn}
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.onchange = async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          const path = await uploadFileAndGetPath(file);
+                          const quoted = `"${path}"`;
+                          const textarea = this._inputRef.current;
+                          if (textarea) {
+                            textarea.value = (textarea.value ? textarea.value + ' ' : '') + quoted;
+                            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                            this.setState({ inputEmpty: false });
+                          }
+                        } catch (err) {
+                          console.error('[CC Viewer] Upload failed:', err);
+                        }
+                      };
+                      input.click();
+                    }}
+                    title={t('ui.terminal.upload')}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                  </button>
+                )}
                 <button
                   className={styles.chatSendBtn}
                   onClick={this.handleInputSend}
@@ -1424,6 +1457,11 @@ class ChatView extends React.Component {
                     scrollToLine: null,
                     fileVersion: (this.state.fileVersion || 0) + 1,
                   });
+                }} onFilePath={(path) => {
+                  const quoted = `"${path}"`;
+                  if (this._inputWs && this._inputWs.readyState === WebSocket.OPEN) {
+                    this._inputWs.send(JSON.stringify({ type: 'input', data: quoted }));
+                  }
                 }} />
               </div>
             </>
