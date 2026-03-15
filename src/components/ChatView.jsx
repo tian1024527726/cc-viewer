@@ -210,7 +210,7 @@ class ChatView extends React.Component {
       ptyPrompt: null,
       ptyPromptHistory: [],
       inputSuggestion: null,
-      fileExplorerOpen: true,
+      fileExplorerOpen: localStorage.getItem('ccv_fileExplorerOpen') !== 'false',
       currentFile: null,
       currentGitDiff: null,
       scrollToLine: null,
@@ -241,6 +241,11 @@ class ChatView extends React.Component {
     this._mobileExtraItems = 0;
     this._mobileSliceOffset = 0;
     this._totalItemCount = 0;
+  }
+
+  _setFileExplorerOpen(open) {
+    localStorage.setItem('ccv_fileExplorerOpen', String(open));
+    this.setState({ fileExplorerOpen: open });
   }
 
   _checkToolFileChanges() {
@@ -760,16 +765,24 @@ class ChatView extends React.Component {
     const { mainAgentSessions } = this.props;
     if (!mainAgentSessions?.length) return null;
     const lastSession = mainAgentSessions[mainAgentSessions.length - 1];
+    const msgs = lastSession?.messages;
+    if (!Array.isArray(msgs) || msgs.length === 0) return null;
+    // 只有 SUGGESTION MODE 请求的响应才是有效建议
+    const lastUserMsg = msgs[msgs.length - 1];
+    if (lastUserMsg?.role !== 'user') return null;
+    const userContent = lastUserMsg.content;
+    const hasSuggestionMode = Array.isArray(userContent)
+      ? userContent.some(b => b.type === 'text' && /^\[SUGGESTION MODE:/i.test((b.text || '').trim()))
+      : typeof userContent === 'string' && /^\[SUGGESTION MODE:/im.test(userContent.trim());
+    if (!hasSuggestionMode) return null;
     const resp = lastSession?.response;
     if (!resp) return null;
     const body = resp.body;
     if (!body) return null;
-    // 仅在 end_turn 或 max_tokens 时提取建议（非工具调用中断）
     const stop = body.stop_reason;
     if (stop !== 'end_turn' && stop !== 'max_tokens') return null;
     const content = body.content;
     if (!Array.isArray(content)) return null;
-    // 取最后一个 text block 的文本
     for (let i = content.length - 1; i >= 0; i--) {
       if (content[i].type === 'text' && content[i].text?.trim()) {
         return content[i].text.trim();
@@ -1252,10 +1265,7 @@ class ChatView extends React.Component {
         <div className={styles.navSidebar}>
           <button
             className={this.state.fileExplorerOpen ? styles.navBtnActive : styles.navBtn}
-            onClick={() => this.setState(prev => ({
-              fileExplorerOpen: !prev.fileExplorerOpen,
-              gitChangesOpen: false,
-            }))}
+            onClick={() => { this._setFileExplorerOpen(!this.state.fileExplorerOpen); this.setState({ gitChangesOpen: false }); }}
             title={t('ui.fileExplorer')}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1264,10 +1274,10 @@ class ChatView extends React.Component {
           </button>
           <button
             className={this.state.gitChangesOpen ? styles.navBtnActive : styles.navBtn}
-            onClick={() => this.setState(prev => ({
-              gitChangesOpen: !prev.gitChangesOpen,
-              fileExplorerOpen: false,
-            }))}
+            onClick={() => this.setState(prev => {
+              this._setFileExplorerOpen(false);
+              return { gitChangesOpen: !prev.gitChangesOpen };
+            })}
             title={t('ui.gitChanges')}
           >
             <svg width="24" height="24" viewBox="0 0 1024 1024" fill="currentColor">
@@ -1323,7 +1333,7 @@ class ChatView extends React.Component {
           {this.state.fileExplorerOpen && (
             <FileExplorer
               refreshTrigger={this.state.fileExplorerRefresh}
-              onClose={() => this.setState({ fileExplorerOpen: false })}
+              onClose={() => this._setFileExplorerOpen(false)}
               onFileClick={(path) => this.setState({ currentFile: path, currentGitDiff: null, scrollToLine: null })}
               expandedPaths={this.state.fileExplorerExpandedPaths}
               onToggleExpand={this.handleToggleExpandPath}
@@ -1344,13 +1354,12 @@ class ChatView extends React.Component {
                 <GitDiffView
                   filePath={this.state.currentGitDiff}
                   onClose={() => this.setState({ currentGitDiff: null })}
-                  onOpenFile={(path, line) => this.setState({
+                  onOpenFile={(path, line) => { this._setFileExplorerOpen(true); this.setState({
                     currentGitDiff: null,
                     currentFile: path,
                     scrollToLine: line || 1,
-                    fileExplorerOpen: true,
                     gitChangesOpen: false,
-                  })}
+                  }); }}
                 />
               </div>
             )}
