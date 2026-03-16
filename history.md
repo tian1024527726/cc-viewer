@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.40 (2026-03-16)
+
+- Feature: log preview Popover — hover (desktop) or click (mobile) to see all user prompts in a floating panel
+- Feature: mobile log table — timestamp hides year, shows `MM-DD HH:mm:ss` format
+- Fix: preview column text overflow — maxWidth 600px with ellipsis for long prompts
+- Fix: stats-worker prompt extraction rewritten to align with App.jsx/contentFilter.js logic (isSystemText, stripSystemTags, extractUserTexts)
+- Fix: preview dedup — file-level Set dedup removes duplicate prompt text within same log file
+- Fix: stats-worker STATS_VERSION 6→8, forces cache invalidation for re-parsing
+
 ## 1.5.39 (2026-03-16)
 
 - Feature: AskUserQuestion interactive UI — pending questions render Radio/Checkbox controls with submit button in chat panel (single-select, multi-select, Other with text input, markdown preview layout)

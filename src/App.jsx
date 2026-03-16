@@ -1,5 +1,5 @@
 import React from 'react';
-import { ConfigProvider, Layout, theme, Modal, Table, Tag, Spin, Button, Checkbox, Badge, Switch, message } from 'antd';
+import { ConfigProvider, Layout, theme, Modal, Table, Tag, Spin, Button, Checkbox, Badge, Switch, Popover, message } from 'antd';
 import { UploadOutlined, MessageOutlined, BranchesOutlined, DownloadOutlined, DeleteOutlined, RollbackOutlined, ReloadOutlined } from '@ant-design/icons';
 import { isMobile, isIOS } from './env';
 import AppHeader from './components/AppHeader';
@@ -978,7 +978,7 @@ class App extends React.Component {
         dataIndex: 'timestamp',
         key: 'time',
         width: mobile ? 150 : 180,
-        render: (ts) => <span style={{ whiteSpace: 'nowrap' }}>{this.formatTimestamp(ts)}</span>,
+        render: (ts) => <span style={{ whiteSpace: 'nowrap' }}>{this.formatTimestamp(ts, mobile)}</span>,
       },
       {
         title: t('ui.logPreview'),
@@ -989,8 +989,33 @@ class App extends React.Component {
         render: (arr) => {
           if (!Array.isArray(arr) || arr.length === 0) return '—';
           const first = arr[0];
-          if (first.length <= 30 && arr.length > 1) return `${first} | ${arr[1]}`;
-          return first;
+          const displayText = (first.length <= 30 && arr.length > 1) ? `${first} | ${arr[1]}` : first;
+          if (arr.length <= 1) return <span style={{ maxWidth: 600, display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}>{displayText}</span>;
+          return (
+            <Popover
+              trigger={mobile ? 'click' : 'hover'}
+              placement={mobile ? 'bottomLeft' : 'rightTop'}
+              overlayInnerStyle={{
+                background: '#1e1e1e',
+                border: '1px solid #3a3a3a',
+                borderRadius: 8,
+                padding: 0,
+                maxHeight: 400,
+                overflowY: 'auto',
+              }}
+              content={
+                <div className={styles.previewPopover}>
+                  {arr.map((text, i) => (
+                    <div key={i} className={styles.previewItem}>
+                      <pre className={styles.previewText}>{text}</pre>
+                    </div>
+                  ))}
+                </div>
+              }
+            >
+              <span style={{ cursor: 'pointer', textDecoration: mobile ? 'underline dotted #666' : 'none', maxWidth: 600, display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}>{displayText}</span>
+            </Popover>
+          );
         },
       },
       ...(!mobile ? [{
@@ -1223,9 +1248,10 @@ class App extends React.Component {
     input.click();
   };
 
-  formatTimestamp(ts) {
+  formatTimestamp(ts, mobile) {
     // 20260217_224218 -> 2026-02-17 22:42:18
     if (!ts || ts.length < 15) return ts;
+    if (mobile) return `${ts.slice(4, 6)}-${ts.slice(6, 8)} ${ts.slice(9, 11)}:${ts.slice(11, 13)}:${ts.slice(13, 15)}`;
     return `${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)} ${ts.slice(9, 11)}:${ts.slice(11, 13)}:${ts.slice(13, 15)}`;
   }
 
