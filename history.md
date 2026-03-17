@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.42 (2026-03-17)
+
+- Feature: ultrathink button in PC terminal toolbar — writes `ultrathink ` command into terminal input without auto-submitting
+- i18n: added `ui.terminal.ultrathink` entries for all 18 supported languages
+
 ## 1.5.41 (2026-03-17)
 
 - Fix: AskUserQuestion single-select radio now clickable — replaced antd Radio.Group with custom div-based radio implementation

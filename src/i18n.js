@@ -3525,6 +3525,26 @@ const i18nData = {
     "ar": "الحالي", "no": "Gjeldende", "pt-BR": "Atual",
     "th": "ปัจจุบัน", "tr": "Mevcut", "uk": "Поточний"
   },
+  "ui.terminal.ultrathink": {
+    "zh": "深度思考",
+    "en": "Ultrathink",
+    "zh-TW": "深度思考",
+    "ko": "울트라씽크",
+    "ja": "ウルトラシンク",
+    "de": "Ultrathink",
+    "es": "Ultrathink",
+    "fr": "Ultrathink",
+    "it": "Ultrathink",
+    "da": "Ultrathink",
+    "pl": "Ultrathink",
+    "ru": "Ultrathink",
+    "ar": "تفكير عميق",
+    "no": "Ultrathink",
+    "pt-BR": "Ultrathink",
+    "th": "คิดลึก",
+    "tr": "Ultrathink",
+    "uk": "Ultrathink"
+  },
   "ui.terminal.upload": {
     "zh": "上传文件",
     "en": "Upload File",
