@@ -61,6 +61,12 @@ export function buildSingleSelectChunks(answer, prompt, isMultiQuestion = false)
 
   chunks.push(...buildArrows(currentIdx, targetIdx));
   chunks.push(ENTER); // Select and confirm (auto-advances in multi-question)
+
+  // Multi-question last question: Enter above advances to Review page,
+  // need another Enter to confirm "Submit answers"
+  if (isMultiQuestion && answer.isLast) {
+    chunks.push(ENTER);
+  }
   return chunks;
 }
 

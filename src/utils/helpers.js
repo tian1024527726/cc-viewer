@@ -26,6 +26,87 @@ export function getModelMaxTokens(modelName) {
   return 200000;
 }
 
+/**
+ * Pre-compute cache loss analysis for all requests in a single forward pass.
+ * Returns Map<index, { reason, reasons }> — O(n) total instead of O(n²).
+ */
+export function buildCacheLossMap(requests) {
+  const map = new Map();
+  let prevMainAgent = null;
+  for (let i = 0; i < requests.length; i++) {
+    const req = requests[i];
+    if (!isMainAgent(req)) continue;
+
+    if (prevMainAgent) {
+      const usage = req.response?.body?.usage;
+      if (usage) {
+        const cacheCreate = usage.cache_creation_input_tokens || 0;
+        const cacheRead = usage.cache_read_input_tokens || 0;
+        if (cacheCreate > 0 && cacheCreate > cacheRead) {
+          const loss = _computeCacheLoss(prevMainAgent, req);
+          if (loss) map.set(i, loss);
+        }
+      }
+    }
+    prevMainAgent = req;
+  }
+  return map;
+}
+
+// WeakMap cache for stringified system/tools — avoids mutating request objects
+const _jsonCache = new WeakMap();
+function _getCachedJson(entry, key) {
+  let cache = _jsonCache.get(entry);
+  if (!cache) { cache = {}; _jsonCache.set(entry, cache); }
+  if (cache[key] === undefined) {
+    const body = stripPrivateKeys(entry.body);
+    cache[key] = JSON.stringify(body?.[key]);
+  }
+  return cache[key];
+}
+
+/** Internal: compare two adjacent MainAgent entries for cache loss reason. */
+function _computeCacheLoss(prevMainAgent, req) {
+  const gap = req.timestamp - prevMainAgent.timestamp;
+  if (gap > 5 * 60 * 1000) return { reason: 'ttl', reasons: ['ttl'] };
+
+  const prev = stripPrivateKeys(prevMainAgent.body);
+  const curr = stripPrivateKeys(req.body);
+  if (!prev || !curr) return { reason: 'key_change', reasons: ['key_change'] };
+
+  const reasons = [];
+
+  if (prev.model !== curr.model) reasons.push('model_change');
+
+  // Use WeakMap cache to avoid re-serialization without mutating entry objects
+  const prevSystem = _getCachedJson(prevMainAgent, 'system');
+  const currSystem = _getCachedJson(req, 'system');
+  if (prevSystem !== currSystem) reasons.push('system_change');
+
+  const prevTools = _getCachedJson(prevMainAgent, 'tools');
+  const currTools = _getCachedJson(req, 'tools');
+  if (prevTools !== currTools) reasons.push('tools_change');
+
+  const prevMsgs = prev.messages || [];
+  const currMsgs = curr.messages || [];
+  if (currMsgs.length < prevMsgs.length) {
+    reasons.push('msg_truncated');
+  } else {
+    const prefixLen = Math.min(prevMsgs.length, currMsgs.length);
+    let prefixMatch = true;
+    for (let j = 0; j < prefixLen; j++) {
+      if (JSON.stringify(prevMsgs[j]) !== JSON.stringify(currMsgs[j])) {
+        prefixMatch = false;
+        break;
+      }
+    }
+    if (!prefixMatch) reasons.push('msg_modified');
+  }
+
+  if (reasons.length === 0) reasons.push('key_change');
+  return { reason: reasons[0], reasons };
+}
+
 export function analyzeCacheLoss(requests, index) {
   const req = requests[index];
   if (!isMainAgent(req)) return null;
@@ -252,9 +333,8 @@ export function computeCacheRebuildStats(requests) {
     msg_modified: { count: 0, cacheCreate: 0 },
     key_change: { count: 0, cacheCreate: 0 },
   };
-  for (let i = 0; i < requests.length; i++) {
-    const result = analyzeCacheLoss(requests, i);
-    if (!result) continue;
+  const lossMap = buildCacheLossMap(requests);
+  for (const [i, result] of lossMap) {
     const cacheCreate = requests[i].response?.body?.usage?.cache_creation_input_tokens || 0;
     const reasons = result.reasons || [result.reason];
     for (const r of reasons) {

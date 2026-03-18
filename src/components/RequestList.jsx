@@ -1,7 +1,7 @@
 import React from 'react';
 import { List, Tag, Empty, Tooltip } from 'antd';
 import { t } from '../i18n';
-import { formatTokenCount, getModelShort, analyzeCacheLoss } from '../utils/helpers';
+import { formatTokenCount, getModelShort } from '../utils/helpers';
 import { classifyRequest, formatRequestTag } from '../utils/requestType';
 import styles from './RequestList.module.css';
 
@@ -101,7 +101,7 @@ class RequestList extends React.Component {
                       <div>token: output:{formatTokenCount(outputTokens) || 0}, input: {formatTokenCount(inputTokens) || 0}</div>
                       {(cacheRead > 0 || cacheCreate > 0) && (
                         <div>{(() => {
-                          const loss = analyzeCacheLoss(requests, index);
+                          const loss = this.props.cacheLossMap?.get(index);
                           const reasonI18nMap = {
                             ttl: 'ui.cacheLoss.ttl',
                             system_change: 'ui.cacheLoss.systemChange',

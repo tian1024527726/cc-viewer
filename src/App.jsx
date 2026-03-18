@@ -12,7 +12,7 @@ import MobileGitDiff from './components/MobileGitDiff';
 import MobileStats from './components/MobileStats';
 import WorkspaceList from './components/WorkspaceList';
 import { t, getLang, setLang } from './i18n';
-import { formatTokenCount, filterRelevantRequests, findPrevMainAgentTimestamp } from './utils/helpers';
+import { formatTokenCount, filterRelevantRequests, findPrevMainAgentTimestamp, buildCacheLossMap } from './utils/helpers';
 import { isMainAgent, isSystemText, classifyUserContent } from './utils/contentFilter';
 import { classifyRequest } from './utils/requestType';
 import styles from './App.module.css';
@@ -71,6 +71,22 @@ class App extends React.Component {
     this._chunkedTotal = 0;
     this.mainContainerRef = React.createRef();
     this._layoutRef = React.createRef();
+    // P0 perf: O(1) request dedup index
+    this._requestIndexMap = new Map();
+    // P0 perf: rAF batching for SSE messages
+    this._pendingEntries = [];
+    this._flushRafId = null;
+    // P0 perf: pre-computed cache loss map
+    this._cacheLossMap = new Map();
+  }
+
+  /** Rebuild the O(1) request dedup index from a full entries array. */
+  _rebuildRequestIndex(entries) {
+    this._requestIndexMap.clear();
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i];
+      this._requestIndexMap.set(`${e.timestamp}|${e.url}`, i);
+    }
   }
 
   componentDidMount() {
@@ -137,6 +153,7 @@ class App extends React.Component {
               this.assignMessageTimestamps(cached);
               const mainAgentSessions = this.buildSessionsFromEntries(cached);
               const filtered = filterRelevantRequests(cached);
+              this._rebuildRequestIndex(cached);
               this.setState({
                 requests: cached,
                 selectedIndex: filtered.length > 0 ? filtered.length - 1 : null,
@@ -289,6 +306,7 @@ class App extends React.Component {
           this.assignMessageTimestamps(entries);
           const mainAgentSessions = this.buildSessionsFromEntries(entries);
           const filtered = filterRelevantRequests(entries);
+          this._rebuildRequestIndex(entries);
           this.setState({
             requests: entries,
             selectedIndex: filtered.length > 0 ? filtered.length - 1 : null,
@@ -310,6 +328,7 @@ class App extends React.Component {
             this.assignMessageTimestamps(entries);
             const mainAgentSessions = this.buildSessionsFromEntries(entries);
             const filtered = filterRelevantRequests(entries);
+            this._rebuildRequestIndex(entries);
             if (entries.length > 0) {
               this.animateLoadingCount(entries.length, () => {
                 this.setState({
@@ -351,6 +370,7 @@ class App extends React.Component {
             cancelAnimationFrame(this._loadingCountTimer);
             this._loadingCountTimer = null;
           }
+          this._rebuildRequestIndex([]);
           this.setState({
             workspaceMode: false,
             projectName: data.projectName || '',
@@ -364,6 +384,7 @@ class App extends React.Component {
         } catch {}
       });
       this.eventSource.addEventListener('workspace_stopped', () => {
+        this._rebuildRequestIndex([]);
         this.setState({
           workspaceMode: true,
           requests: [],
@@ -420,6 +441,7 @@ class App extends React.Component {
             this.assignMessageTimestamps(entries);
             const mainAgentSessions = this.buildSessionsFromEntries(entries);
             const filtered = filterRelevantRequests(entries);
+            this._rebuildRequestIndex(entries);
             this.setState({
               requests: entries,
               selectedIndex: filtered.length > 0 ? filtered.length - 1 : null,
@@ -442,27 +464,44 @@ class App extends React.Component {
   handleEventMessage(event) {
     try {
       const entry = JSON.parse(event.data);
+      this._pendingEntries.push(entry);
+      if (!this._flushRafId) {
+        this._flushRafId = requestAnimationFrame(this._flushPendingEntries);
+      }
+    } catch (error) {
+      console.error('处理事件消息失败:', error);
+    }
+  }
 
-      this.setState(prev => {
-        const requests = [...prev.requests];
-        const existingIndex = requests.findIndex(r =>
-          r.timestamp === entry.timestamp && r.url === entry.url
-        );
+  _flushPendingEntries = () => {
+    this._flushRafId = null;
+    const batch = this._pendingEntries;
+    this._pendingEntries = [];
+    if (batch.length === 0) return;
 
-        if (existingIndex >= 0) {
+    this.setState(prev => {
+      const requests = [...prev.requests]; // one copy per frame, not per message
+
+      let cacheExpireAt = prev.cacheExpireAt;
+      let cacheType = prev.cacheType;
+      let mainAgentSessions = prev.mainAgentSessions;
+
+      for (const entry of batch) {
+        const key = `${entry.timestamp}|${entry.url}`;
+        const existingIndex = this._requestIndexMap.get(key);
+
+        if (existingIndex !== undefined) {
           requests[existingIndex] = entry;
         } else {
+          this._requestIndexMap.set(key, requests.length);
           requests.push(entry);
         }
 
         // 记录 mainAgent 缓存信息
-        let cacheExpireAt = prev.cacheExpireAt;
-        let cacheType = prev.cacheType;
         if (isMainAgent(entry)) {
           const usage = entry.response?.body?.usage;
           if (usage?.cache_creation) {
             const cc = usage.cache_creation;
-            // 基于请求时间计算过期时间，而非当前时间
             const reqTime = entry.timestamp ? new Date(entry.timestamp).getTime() : Date.now();
             let newExpireAt = null;
             let newType = null;
@@ -475,7 +514,6 @@ class App extends React.Component {
             }
             if (newExpireAt && newExpireAt > Date.now()) {
               cacheExpireAt = newExpireAt;
-              // 计算最后一条 mainAgent 的 cache read + creation token 总和
               const cacheTotal = (usage.cache_read_input_tokens || 0) + (usage.cache_creation_input_tokens || 0);
               cacheType = cacheTotal > 0 ? formatTokenCount(cacheTotal) : newType;
               localStorage.setItem('ccv_cacheExpireAt', String(cacheExpireAt));
@@ -485,7 +523,6 @@ class App extends React.Component {
         }
 
         // 合并 mainAgent sessions
-        let mainAgentSessions = prev.mainAgentSessions;
         if (isMainAgent(entry) && entry.body && Array.isArray(entry.body.messages)) {
           const timestamp = entry.timestamp || new Date().toISOString();
           const lastSession = mainAgentSessions.length > 0 ? mainAgentSessions[mainAgentSessions.length - 1] : null;
@@ -493,7 +530,6 @@ class App extends React.Component {
           const messages = entry.body.messages;
           const prevCount = prevMessages.length;
 
-          // 检测 session 切换（消息数量骤降）
           const isNewSession = prevCount > 0 && messages.length < prevCount * 0.5 && (prevCount - messages.length) > 4;
 
           for (let i = 0; i < messages.length; i++) {
@@ -503,39 +539,38 @@ class App extends React.Component {
               messages[i]._timestamp = timestamp;
             }
           }
-          mainAgentSessions = this.mergeMainAgentSessions(prev.mainAgentSessions, entry);
+          mainAgentSessions = this.mergeMainAgentSessions(mainAgentSessions, entry);
         }
+      }
 
-        let selectedIndex = prev.selectedIndex;
+      // Invalidate cache loss map so render() recomputes it
+      this._cacheLossMapSource = null;
 
-        // 没有选中状态时，等初始数据加载完后选中最后一条
-        if (selectedIndex === null && requests.length > 0) {
-          if (this._autoSelectTimer) clearTimeout(this._autoSelectTimer);
-          this._autoSelectTimer = setTimeout(() => {
-            this.setState(s => {
-              if (s.selectedIndex === null && s.requests.length > 0) {
-                const filtered = s.showAll ? s.requests : filterRelevantRequests(s.requests);
-                return filtered.length > 0 ? { selectedIndex: filtered.length - 1 } : null;
-              }
-              return null;
-            });
-          }, 200);
-        }
+      let selectedIndex = prev.selectedIndex;
+      if (selectedIndex === null && requests.length > 0) {
+        if (this._autoSelectTimer) clearTimeout(this._autoSelectTimer);
+        this._autoSelectTimer = setTimeout(() => {
+          this.setState(s => {
+            if (s.selectedIndex === null && s.requests.length > 0) {
+              const filtered = s.showAll ? s.requests : filterRelevantRequests(s.requests);
+              return filtered.length > 0 ? { selectedIndex: filtered.length - 1 } : null;
+            }
+            return null;
+          });
+        }, 200);
+      }
 
-        return { requests, cacheExpireAt, cacheType, mainAgentSessions };
-      }, () => {
-        // 移动端：防抖 5s 批量写入缓存
-        if (isMobile && this.state.projectName) {
-          if (this._cacheSaveTimer) clearTimeout(this._cacheSaveTimer);
-          this._cacheSaveTimer = setTimeout(() => {
-            if (this.state.projectName) saveEntries(this.state.projectName, this.state.requests);
-          }, 5000);
-        }
-      });
-    } catch (error) {
-      console.error('处理事件消息失败:', error);
-    }
-  }
+      return { requests, cacheExpireAt, cacheType, mainAgentSessions };
+    }, () => {
+      // 移动端：防抖 5s 批量写入缓存
+      if (isMobile && this.state.projectName) {
+        if (this._cacheSaveTimer) clearTimeout(this._cacheSaveTimer);
+        this._cacheSaveTimer = setTimeout(() => {
+          if (this.state.projectName) saveEntries(this.state.projectName, this.state.requests);
+        }, 5000);
+      }
+    });
+  };
 
   /**
    * 前置处理：遍历所有 MainAgent entries，根据消息数量递增关系，
@@ -669,6 +704,7 @@ class App extends React.Component {
   handleReturnToWorkspaces = () => {
     fetch(apiUrl('/api/workspaces/stop'), { method: 'POST' })
       .then(() => {
+        this._rebuildRequestIndex([]);
         this.setState({
           workspaceMode: true,
           requests: [],
@@ -1252,6 +1288,7 @@ class App extends React.Component {
             this._isLocalLog = true;
             this._localLogFile = file.name;
             if (this.eventSource) { this.eventSource.close(); this.eventSource = null; }
+            this._rebuildRequestIndex(entries);
             this.setState({
               requests: entries,
               selectedIndex: filtered.length > 0 ? filtered.length - 1 : null,
@@ -1289,6 +1326,12 @@ class App extends React.Component {
 
     // 过滤心跳请求（eval/sdk-* 和 count_tokens），除非 showAll
     const filteredRequests = showAll ? requests : filterRelevantRequests(requests);
+
+    // P0 perf: compute cache loss map from filtered list (O(n) vs old O(n²))
+    if (this._cacheLossMapSource !== filteredRequests) {
+      this._cacheLossMapSource = filteredRequests;
+      this._cacheLossMap = buildCacheLossMap(filteredRequests);
+    }
 
     const selectedRequest = selectedIndex !== null ? filteredRequests[selectedIndex] : null;
 
@@ -1707,6 +1750,7 @@ class App extends React.Component {
                       scrollCenter={this.state.scrollCenter}
                       onSelect={this.handleSelectRequest}
                       onScrollDone={() => this.setState({ scrollCenter: false })}
+                      cacheLossMap={this._cacheLossMap}
                     />
                   </div>
                 </div>
