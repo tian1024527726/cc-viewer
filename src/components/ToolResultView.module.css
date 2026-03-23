@@ -18,9 +18,9 @@
 }
 
 .codeResult {
-  background: #0d1117;
-  border-radius: 6px;
-  border: 1px solid #1e2a3a;
+  background: #111;
+  border-radius: 4px;
+  border: 1px solid #1e293b;
   overflow: hidden;
 }
 
@@ -29,8 +29,11 @@
   justify-content: space-between;
   align-items: center;
   padding: 4px 10px;
-  background: #161b22;
-  border-bottom: 1px solid #1e2a3a;
+  background: #111;
+}
+/* 展开时才显示分隔线，收起时 codeHeader 是最后可见元素，避免与容器 border 叠加成两条线 */
+.codeHeader:not(:last-child) {
+  border-bottom: 1px solid #1e293b;
 }
 
 .codeTitle {

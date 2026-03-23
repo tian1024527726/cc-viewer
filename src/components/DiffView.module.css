@@ -1,8 +1,8 @@
 .wrapper {
   margin: 6px 0;
-  background: #1a1a2e;
+  background: #1a1a21;
   border: 1px solid #2a2a3e;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 8px 12px;
 }
 
@@ -110,7 +110,7 @@
 /* === Row type colors === */
 
 .rowContext {
-  background: #1a1a2e;
+  background: #1a1a21;
   color: #8b949e;
 }
 
@@ -137,5 +137,5 @@
 }
 
 .rowContext.gutterRow {
-  background: #1a1a2e;
+  background: #1a1a21;
 }

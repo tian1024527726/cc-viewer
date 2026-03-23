@@ -20,7 +20,9 @@
 
 .bubble {
   border-radius: 8px;
-  padding: 10px 14px;
+  border: 1px solid #222;
+  box-sizing: border-box;
+  padding: 6px 10px;
   max-width: 100%;
   font-size: 14px;
   line-height: 1.6;
@@ -158,7 +160,7 @@
 
 .bubbleSubAgent {
   composes: bubble;
-  background: #1a1a2e;
+  background: #1a1a21;
   color: #e5e7eb;
 }
 
@@ -209,9 +211,9 @@
 /* === Tool call box === */
 
 .toolBox {
-  background: #1a1a2e;
+  background: #1a1a21;
   border: 1px solid #2a2a3e;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 8px 12px;
   margin: 6px 0;
   font-size: 12px;
@@ -228,7 +230,7 @@
   margin: 4px 0 0;
   white-space: pre-wrap;
   word-break: break-all;
-  background: #0d1117;
+  background: #111;
   border-radius: 4px;
   padding: 6px 8px;
 }
@@ -241,7 +243,7 @@
 }
 
 .pathTagClickable {
-  color: #7dd3fc;
+  color: #666;
   font-size: 11px;
   cursor: pointer;
 }
@@ -288,7 +290,7 @@
 /* === Tool result box === */
 
 .toolResult {
-  background: #111827;
+  background: #111420;
   border: 1px solid #1e293b;
   border-radius: 6px;
   padding: 6px 10px;
@@ -365,7 +367,7 @@
 .askQuestionBox {
   background: #0d1f0d;
   border: 1px solid #2ea043;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 8px 12px;
   margin: 6px 0;
   font-size: 12px;
@@ -412,7 +414,7 @@
 .planModeBox {
   background: #0d1528;
   border: 1px solid #1668dc;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 8px 12px;
   margin: 6px 0;
   font-size: 12px;
@@ -612,7 +614,7 @@
 .askQuestionInteractive {
   background: #0d1528;
   border: 1px solid #1668dc;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 8px 12px;
   margin: 6px 0;
   font-size: 12px;

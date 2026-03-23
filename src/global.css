@@ -46,7 +46,7 @@ body {
   line-height: 1.5;
 }
 .chat-md code {
-  background: #1a1a2e;
+  background: #1a1a21;
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 13px;
@@ -88,6 +88,11 @@ body {
 .ant-tooltip .ant-tooltip-arrow::before,
 .ant-tooltip .ant-tooltip-arrow::after {
   background: #090909;
+}
+
+/* Ant Design Typography font size override */
+.ant-typography {
+  font-size: 12px;
 }
 
 /* antd Modal.confirm dark override */
