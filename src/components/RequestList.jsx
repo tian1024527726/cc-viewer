@@ -27,9 +27,12 @@ class RequestList extends React.Component {
   componentDidUpdate(prevProps) {
     if (this.props.scrollCenter && prevProps.selectedIndex !== this.props.selectedIndex) {
       this.scrollToSelected(true);
-    } else if (prevProps.requests !== this.props.requests) {
+    } else if (prevProps.selectedIndex !== this.props.selectedIndex) {
+      // User selected a different item — scroll to it
       this.scrollToSelected(false);
     }
+    // When requests update but selectedIndex hasn't changed,
+    // don't scroll — preserve user's current scroll position
   }
 
   scrollToSelected(center) {
