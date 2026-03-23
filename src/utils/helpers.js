@@ -459,7 +459,8 @@ export function isRelevantRequest(request) {
     /\/api\/eval\/sdk-/.test(url) ||
     /\/messages\/count_tokens/.test(url) ||
     request.inProgress === true ||  // 过滤在途请求
-    (request.response && request.response.status === 0)  // 兼容历史日志：过滤状态为0的请求
+    (request.response && request.response.status === 0) ||  // 兼容历史日志：过滤状态为0的请求
+    (request.body?.max_tokens === 1 && !request.body?.system && (!request.body?.tools || request.body.tools.length === 0))  // 配额检查请求（单消息 "quota"，max_tokens=1）
   );
 }
 

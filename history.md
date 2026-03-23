@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.32 (2026-03-24)
+
+- Fix: reduce MAX_LOG_SIZE from 250MB to 150MB to lower OOM risk with delta-compressed logs
+- Fix: filter out quota-check requests (max_tokens=1, no system, no tools) from request list
+- Style: remove flex:1 from chat message contentCol
+
 ## 1.6.26 (2026-03-23)
 
 - Perf: fix AppHeader per-frame re-render — countdown rAF now only setState when text changes (~60/s → ~1/s)
