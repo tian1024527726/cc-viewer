@@ -12,6 +12,7 @@ import {
   isMainAgentRequest,
   isPreflightEntry,
   migrateConversationContext,
+  rotateLogFile,
 } from '../lib/interceptor-core.js';
 
 // ============================================================================
@@ -763,6 +764,90 @@ describe('interceptor', () => {
       assert.equal(sanitize('项目名'), '___');
       assert.equal(sanitize('a/b\\c:d'), 'a_b_c_d');
       assert.equal(sanitize('valid.name-123_ok'), 'valid.name-123_ok');
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // rotateLogFile
+  // --------------------------------------------------------------------------
+  describe('rotateLogFile', () => {
+    it('rotates when file exceeds maxSize', () => {
+      const oldFile = join(tempDir, 'big.jsonl');
+      const newFile = join(tempDir, 'new.jsonl');
+      // Write 1KB of data, set maxSize to 500 bytes
+      writeFileSync(oldFile, 'x'.repeat(1024));
+
+      const result = rotateLogFile(oldFile, newFile, 500);
+
+      assert.equal(result.rotated, true);
+      assert.equal(result.oldFile, oldFile);
+      assert.equal(result.newFile, newFile);
+    });
+
+    it('does not rotate when file is under maxSize', () => {
+      const oldFile = join(tempDir, 'small.jsonl');
+      const newFile = join(tempDir, 'new.jsonl');
+      writeFileSync(oldFile, 'x'.repeat(100));
+
+      const result = rotateLogFile(oldFile, newFile, 500);
+
+      assert.equal(result.rotated, false);
+      assert.equal(result.oldFile, undefined);
+    });
+
+    it('does not rotate when file does not exist', () => {
+      const result = rotateLogFile(join(tempDir, 'nonexistent.jsonl'), join(tempDir, 'new.jsonl'), 500);
+      assert.equal(result.rotated, false);
+    });
+
+    it('creates empty new file without migrating content', () => {
+      const oldFile = join(tempDir, 'old_data.jsonl');
+      const newFile = join(tempDir, 'fresh.jsonl');
+      const content = JSON.stringify({ mainAgent: true, body: { messages: [{ role: 'user', content: 'hello' }] } });
+      writeFileSync(oldFile, content + '\n---\n');
+
+      rotateLogFile(oldFile, newFile, 10); // maxSize=10 to trigger rotation
+
+      // New file should exist but be empty (no migration)
+      assert.ok(existsSync(newFile), 'new file should be created by rotateLogFile');
+      assert.equal(readFileSync(newFile, 'utf-8'), '', 'new file should be empty');
+    });
+
+    it('appends newline to old file to trigger watcher', () => {
+      const oldFile = join(tempDir, 'watcher_trigger.jsonl');
+      const newFile = join(tempDir, 'new_watcher.jsonl');
+      const originalContent = 'x'.repeat(1024);
+      writeFileSync(oldFile, originalContent);
+
+      rotateLogFile(oldFile, newFile, 500);
+
+      const afterContent = readFileSync(oldFile, 'utf-8');
+      assert.equal(afterContent, originalContent + '\n', 'old file should have \\n appended');
+    });
+
+    it('rotates repeatedly without skip (no cascade suppression)', () => {
+      // Simulate: first rotation, then file grows again, second rotation should also work
+      const file1 = join(tempDir, 'round1.jsonl');
+      const file2 = join(tempDir, 'round2.jsonl');
+      const file3 = join(tempDir, 'round3.jsonl');
+
+      writeFileSync(file1, 'x'.repeat(1024));
+      const r1 = rotateLogFile(file1, file2, 500);
+      assert.equal(r1.rotated, true);
+
+      // Simulate file2 also grows past limit
+      writeFileSync(file2, 'y'.repeat(1024));
+      const r2 = rotateLogFile(file2, file3, 500);
+      assert.equal(r2.rotated, true, 'second rotation should not be suppressed');
+    });
+
+    it('exact boundary: file size equals maxSize triggers rotation', () => {
+      const oldFile = join(tempDir, 'exact.jsonl');
+      const newFile = join(tempDir, 'exact_new.jsonl');
+      writeFileSync(oldFile, 'x'.repeat(500));
+
+      const result = rotateLogFile(oldFile, newFile, 500);
+      assert.equal(result.rotated, true);
     });
   });
 });

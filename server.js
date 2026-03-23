@@ -1313,14 +1313,37 @@ async function handleRequest(req, res) {
         return;
       }
       const fileName = file.split('/').pop();
-      const stat = statSync(realPath);
-      res.writeHead(200, {
-        'Content-Type': 'application/octet-stream',
-        'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
-        'Content-Length': stat.size,
-      });
-      const stream = createReadStream(realPath);
-      stream.pipe(res);
+      const format = parsedUrl.searchParams.get('format');
+      // Delta storage: format=raw 下载原始文件；默认下载重建后的全量格式
+      if (format === 'raw') {
+        const stat = statSync(realPath);
+        res.writeHead(200, {
+          'Content-Type': 'application/octet-stream',
+          'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
+          'Content-Length': stat.size,
+        });
+        const stream = createReadStream(realPath);
+        stream.pipe(res);
+      } else {
+        // 重建为全量格式下载
+        const { readLocalLog } = await import('./lib/log-management.js');
+        const entries = readLocalLog(LOG_DIR, file);
+        // 清除 delta 元字段
+        for (const entry of entries) {
+          delete entry._deltaFormat;
+          delete entry._totalMessageCount;
+          delete entry._conversationId;
+          delete entry._isCheckpoint;
+        }
+        const content = entries.map(e => JSON.stringify(e)).join('\n---\n') + '\n---\n';
+        const buf = Buffer.from(content, 'utf-8');
+        res.writeHead(200, {
+          'Content-Type': 'application/octet-stream',
+          'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
+          'Content-Length': buf.length,
+        });
+        res.end(buf);
+      }
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: err.message }));

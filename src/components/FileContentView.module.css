@@ -17,6 +17,21 @@
   }
 }
 
+.closing {
+  animation: slideOutToRight 0.2s ease-in forwards;
+}
+
+@keyframes slideOutToRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-40px);
+    opacity: 0;
+  }
+}
+
 .editorBanner {
   padding: 6px 16px;
   background: #1a3a2a;

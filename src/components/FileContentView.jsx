@@ -276,6 +276,8 @@ export default function FileContentView({ filePath, onClose, editorSession, scro
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState(null);
   const [lineCount, setLineCount] = useState(0);
+  const [closing, setClosing] = useState(false);
+  const containerRef = useRef(null);
   const mounted = useRef(true);
   const saveTimeoutRef = useRef(null);
   const saveRef = useRef(null);
@@ -284,6 +286,17 @@ export default function FileContentView({ filePath, onClose, editorSession, scro
   const editorWrapperRef = useRef(null);
 
   const isDirty = content !== null && currentContent !== null && content !== currentContent;
+
+  const handleClose = useCallback(() => {
+    if (closing) return;
+    setClosing(true);
+    const el = containerRef.current;
+    if (el) {
+      el.addEventListener('animationend', () => onClose(), { once: true });
+    } else {
+      onClose();
+    }
+  }, [closing, onClose]);
 
   const doSave = useCallback(async () => {
     if (!isDirty) return;
@@ -459,15 +472,15 @@ export default function FileContentView({ filePath, onClose, editorSession, scro
   }, [lineCount]);
 
   return (
-    <div className={styles.fileContentView}>
+    <div ref={containerRef} className={`${styles.fileContentView}${closing ? ` ${styles.closing}` : ''}`}>
       {editorSession && (
-        <div className={styles.editorBanner} onClick={onClose} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onClose(); }}>
+        <div className={styles.editorBanner} onClick={handleClose} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') handleClose(); }}>
           {i18n('ui.editorSession.banner')}
         </div>
       )}
       <div className={styles.header}>
         <div className={styles.headerLeft}>
-          <button className={styles.backBtn} onClick={onClose} title={i18n('ui.backToChat')}>
+          <button className={styles.backBtn} onClick={handleClose} title={i18n('ui.backToChat')}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6"/>
             </svg>
@@ -496,7 +509,7 @@ export default function FileContentView({ filePath, onClose, editorSession, scro
             </svg>
             {i18n('ui.save')}
           </button>
-          <button className={styles.closeBtn} onClick={onClose} title={i18n('ui.backToChat')}>
+          <button className={styles.closeBtn} onClick={handleClose} title={i18n('ui.backToChat')}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>

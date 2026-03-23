@@ -11,7 +11,7 @@ import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, basename } from 'node:path';
 import { LOG_DIR } from './findcc.js';
-import { assembleStreamMessage, cleanupTempFiles, findRecentLog, isAnthropicApiPath, isMainAgentRequest, migrateConversationContext } from './lib/interceptor-core.js';
+import { assembleStreamMessage, cleanupTempFiles, findRecentLog, isAnthropicApiPath, isMainAgentRequest, rotateLogFile } from './lib/interceptor-core.js';
 
 
 
@@ -83,6 +83,20 @@ function resolveResumeChoice(choice) {
   _resumeState = null;
   _resolveChoice(result);
   return result;
+}
+
+// Delta storage: 增量存储开关和状态（默认开启，设置 CCV_DISABLE_DELTA=1 关闭）
+// 注意：delta 计算依赖 mainAgent 请求串行（Claude CLI 保证），不做并发互斥
+const _deltaStorageEnabled = process.env.CCV_DISABLE_DELTA !== '1';
+let _lastMessagesCount = 0;     // 上一次 mainAgent 写入的完整 messages 数量
+let _mainAgentDeltaCount = 0;   // mainAgent 请求计数器（用于触发定期 checkpoint）
+const CHECKPOINT_INTERVAL = 10; // 每 N 条 mainAgent 请求写一个 checkpoint
+
+/** Delta storage: completed 写入成功后更新状态 */
+function _commitDeltaState(originalLength) {
+  if (_deltaStorageEnabled && originalLength > 0) {
+    _lastMessagesCount = originalLength;
+  }
 }
 
 // Teammate 子进程检测：--parent-session-id（旧模式）或 --agent-name（原生 team 模式）
@@ -184,21 +198,24 @@ export function resetWorkspace() {
   LOG_FILE = '';
 }
 
-const MAX_LOG_SIZE = 150 * 1024 * 1024; // 150MB
+const MAX_LOG_SIZE = 250 * 1024 * 1024; // 250MB
 
 function checkAndRotateLogFile() {
   // Teammate 不做日志轮转，由 leader 负责
   if (_isTeammate) return;
   try {
-    if (!existsSync(LOG_FILE)) return;
-    const size = statSync(LOG_FILE).size;
-    if (size >= MAX_LOG_SIZE) {
-      const oldFile = LOG_FILE;
-      const { filePath } = generateNewLogFilePath();
-      LOG_FILE = filePath;
-      migrateConversationContext(oldFile, filePath);
+    if (!existsSync(LOG_FILE) || statSync(LOG_FILE).size < MAX_LOG_SIZE) return;
+  } catch { return; }
+  const { filePath } = generateNewLogFilePath();
+  const result = rotateLogFile(LOG_FILE, filePath, MAX_LOG_SIZE);
+  if (result.rotated) {
+    LOG_FILE = result.newFile;
+    // 重置 delta 状态，强制下一条 mainAgent 请求写完整 checkpoint
+    if (_deltaStorageEnabled) {
+      _lastMessagesCount = 0;
+      _mainAgentDeltaCount = 0;
     }
-  } catch { }
+  }
 }
 
 // 从环境变量 ANTHROPIC_BASE_URL 提取域名用于请求匹配
@@ -356,7 +373,7 @@ export function setupInterceptor() {
       }
     } catch { }
 
-    // 用户新指令边界：检查日志文件大小，超过 200MB 则切换新文件
+    // 用户新指令边界：检查日志文件大小，超过 250MB 则切换新文件
     if (requestEntry?.mainAgent) {
       checkAndRotateLogFile();
       // 仅 mainAgent 请求时缓存模型名，避免 SubAgent 覆盖
@@ -366,6 +383,36 @@ export function setupInterceptor() {
         if (/haiku/i.test(requestEntry.body.model)) {
           _cachedHaikuModel = requestEntry.body.model;
         }
+      }
+    }
+
+    // Delta storage：仅 mainAgent 且开关启用时，将 body.messages 转为增量格式
+    let _deltaOriginalMessagesLength = 0; // 缓存本次请求的原始 messages 长度，用于 completed 后更新状态
+    if (_deltaStorageEnabled && requestEntry?.mainAgent && Array.isArray(requestEntry.body?.messages)) {
+      const messages = requestEntry.body.messages;
+      _deltaOriginalMessagesLength = messages.length;
+      _mainAgentDeltaCount++;
+
+      // 判断是否需要写 checkpoint
+      const needsCheckpoint =
+        _lastMessagesCount === 0 ||                           // 进程重启 / 首次请求
+        messages.length < _lastMessagesCount ||               // messages 缩短（/clear、context 压缩）
+        (_mainAgentDeltaCount % CHECKPOINT_INTERVAL === 0);   // 定期 checkpoint
+
+      if (needsCheckpoint) {
+        // checkpoint：保持完整 messages，标记 _isCheckpoint
+        requestEntry._deltaFormat = 1;
+        requestEntry._totalMessageCount = messages.length;
+        requestEntry._conversationId = 'mainAgent';
+        requestEntry._isCheckpoint = true;
+      } else {
+        // delta：只保留新增的 messages
+        const delta = messages.slice(_lastMessagesCount);
+        requestEntry._deltaFormat = 1;
+        requestEntry._totalMessageCount = messages.length;
+        requestEntry._conversationId = 'mainAgent';
+        requestEntry._isCheckpoint = false;
+        requestEntry.body.messages = delta;
       }
     }
 
@@ -447,6 +494,7 @@ export function setupInterceptor() {
                       delete requestEntry.inProgress;
                       delete requestEntry.requestId;
                       appendFileSync(LOG_FILE, JSON.stringify(requestEntry) + '\n---\n');
+                      _commitDeltaState(_deltaOriginalMessagesLength);
                       // Release memory: clear large objects after disk write
                       streamedContent = '';
                       requestEntry.response = null;
@@ -455,6 +503,7 @@ export function setupInterceptor() {
                       delete requestEntry.inProgress;
                       delete requestEntry.requestId;
                       appendFileSync(LOG_FILE, JSON.stringify(requestEntry) + '\n---\n');
+                      _commitDeltaState(_deltaOriginalMessagesLength);
                       streamedContent = '';
                       requestEntry.response = null;
                     }
@@ -487,6 +536,7 @@ export function setupInterceptor() {
           delete requestEntry.inProgress;
           delete requestEntry.requestId;
           appendFileSync(LOG_FILE, JSON.stringify(requestEntry) + '\n---\n');
+          _commitDeltaState(_deltaOriginalMessagesLength);
         }
       } else {
         // 对于非流式响应，可以安全读取body
@@ -513,10 +563,12 @@ export function setupInterceptor() {
           delete requestEntry.requestId;
 
           appendFileSync(LOG_FILE, JSON.stringify(requestEntry) + '\n---\n');
+          _commitDeltaState(_deltaOriginalMessagesLength);
         } catch (err) {
           delete requestEntry.inProgress;
           delete requestEntry.requestId;
           appendFileSync(LOG_FILE, JSON.stringify(requestEntry) + '\n---\n');
+          _commitDeltaState(_deltaOriginalMessagesLength);
         }
       }
     }
