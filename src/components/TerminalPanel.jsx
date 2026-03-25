@@ -10,6 +10,7 @@ import { t } from '../i18n';
 import { apiUrl } from '../utils/apiUrl';
 import { isMobile, isIOS } from '../env';
 import styles from './TerminalPanel.module.css';
+import { BUILTIN_PRESETS } from '../utils/builtinPresets.js';
 
 // 虚拟按键定义：label 显示文字，seq 为发送到终端的转义序列
 const VIRTUAL_KEYS = [
@@ -98,15 +99,30 @@ class TerminalPanel extends React.Component {
       const enabled = data?.env?.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === '1';
       this.setState({ agentTeamEnabled: enabled });
     }).catch(() => {});
-    // 读取预置快捷方式（兼容旧版 string[] 和新版 {teamName, description}[]）
+    // 读取预置快捷方式（兼容旧版 string[] 和新版 {teamName, description}[]），合并内置预置
     fetch(apiUrl('/api/preferences')).then(r => r.json()).then(data => {
+      const dismissed = Array.isArray(data.dismissedBuiltinPresets) ? new Set(data.dismissedBuiltinPresets) : new Set();
+      this._dismissedBuiltinPresets = dismissed;
+      let items = [];
       if (Array.isArray(data.presetShortcuts)) {
-        const items = data.presetShortcuts.map((item, i) => {
+        items = data.presetShortcuts.map((item, i) => {
           if (typeof item === 'string') return { id: Date.now() + i, teamName: '', description: item };
-          return { id: Date.now() + i, teamName: item.teamName || '', description: item.description || '' };
+          return {
+            id: Date.now() + i,
+            teamName: item.teamName || '',
+            description: item.description || '',
+            ...(item.builtinId ? { builtinId: item.builtinId } : {}),
+            ...(item.modified ? { modified: true } : {}),
+          };
         });
-        this.setState({ presetItems: items });
       }
+      // 合并内置预置：未被用户删除且不在已有列表中的
+      const existingBuiltinIds = new Set(items.filter(i => i.builtinId).map(i => i.builtinId));
+      for (const bp of BUILTIN_PRESETS) {
+        if (dismissed.has(bp.builtinId) || existingBuiltinIds.has(bp.builtinId)) continue;
+        items.unshift({ id: Date.now() + Math.random(), builtinId: bp.builtinId, teamName: bp.teamName, description: bp.description });
+      }
+      this.setState({ presetItems: items });
     }).catch(() => {});
   }
 
@@ -659,11 +675,20 @@ class TerminalPanel extends React.Component {
   };
 
   // --- 预置快捷方式相关 ---
-  _savePresetShortcuts = (items) => {
+  _savePresetShortcuts = (items, dismissed) => {
+    const payload = {
+      presetShortcuts: items.map(i => {
+        const o = { teamName: i.teamName, description: i.description };
+        if (i.builtinId) o.builtinId = i.builtinId;
+        if (i.modified) o.modified = true;
+        return o;
+      }),
+    };
+    if (dismissed) payload.dismissedBuiltinPresets = [...dismissed];
     fetch(apiUrl('/api/preferences'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ presetShortcuts: items.map(i => ({ teamName: i.teamName, description: i.description })) }),
+      body: JSON.stringify(payload),
     }).catch(() => {});
   };
 
@@ -674,7 +699,12 @@ class TerminalPanel extends React.Component {
     const { presetEditId, presetItems } = this.state;
     let next;
     if (presetEditId) {
-      next = presetItems.map(i => i.id === presetEditId ? { ...i, teamName, description } : i);
+      next = presetItems.map(i => {
+        if (i.id !== presetEditId) return i;
+        const updated = { ...i, teamName, description };
+        if (i.builtinId) updated.modified = true;
+        return updated;
+      });
     } else {
       next = [...presetItems, { id: Date.now(), teamName, description }];
     }
@@ -685,9 +715,17 @@ class TerminalPanel extends React.Component {
   handlePresetDelete = () => {
     const { presetItems, presetSelected } = this.state;
     if (presetSelected.size === 0) return;
+    // 收集被删除的内置项 builtinId
+    const dismissed = new Set(this._dismissedBuiltinPresets || []);
+    for (const item of presetItems) {
+      if (presetSelected.has(item.id) && item.builtinId) {
+        dismissed.add(item.builtinId);
+      }
+    }
+    this._dismissedBuiltinPresets = dismissed;
     const next = presetItems.filter(i => !presetSelected.has(i.id));
     this.setState({ presetItems: next, presetSelected: new Set() });
-    this._savePresetShortcuts(next);
+    this._savePresetShortcuts(next, dismissed);
   };
 
   handlePresetToggle = (id) => {
@@ -752,11 +790,16 @@ class TerminalPanel extends React.Component {
                     {this.state.presetItems.length === 0 ? (
                       <div style={{ color: '#666', fontSize: 13, padding: '8px 12px', textAlign: 'center' }}>—</div>
                     ) : (
-                      this.state.presetItems.map(item => (
-                        <button key={item.id} className={styles.presetMenuItem} onClick={() => this.handlePresetSend(item.description)} title={item.description}>
-                          {item.teamName || item.description}
-                        </button>
-                      ))
+                      this.state.presetItems.map(item => {
+                        const isBuiltinRaw = item.builtinId && !item.modified;
+                        const name = isBuiltinRaw ? t(item.teamName) : item.teamName;
+                        const desc = isBuiltinRaw ? t(item.description) : item.description;
+                        return (
+                          <button key={item.id} className={styles.presetMenuItem} onClick={() => this.handlePresetSend(desc)} title={desc}>
+                            {name || desc}
+                          </button>
+                        );
+                      })
                     )}
                   </div>
                 }
@@ -820,17 +863,22 @@ class TerminalPanel extends React.Component {
             {this.state.presetItems.length === 0 ? (
               <div style={{ color: '#666', fontSize: 13, padding: '12px 0', textAlign: 'center' }}>—</div>
             ) : (
-              this.state.presetItems.map(item => (
-                <div key={item.id} className={styles.presetRow}>
-                  <Checkbox
-                    checked={this.state.presetSelected.has(item.id)}
-                    onChange={() => this.handlePresetToggle(item.id)}
-                  />
-                  <span className={styles.presetName} title={item.teamName}>{item.teamName || '—'}</span>
-                  <span className={styles.presetText} title={item.description}>{item.description}</span>
-                  <Button size="small" type="link" onClick={() => this.setState({ presetAddVisible: true, presetAddName: item.teamName, presetAddText: item.description, presetEditId: item.id })}>{t('ui.terminal.editItem')}</Button>
-                </div>
-              ))
+              this.state.presetItems.map(item => {
+                const isBuiltinRaw = item.builtinId && !item.modified;
+                const name = isBuiltinRaw ? t(item.teamName) : item.teamName;
+                const desc = isBuiltinRaw ? t(item.description) : item.description;
+                return (
+                  <div key={item.id} className={styles.presetRow}>
+                    <Checkbox
+                      checked={this.state.presetSelected.has(item.id)}
+                      onChange={() => this.handlePresetToggle(item.id)}
+                    />
+                    <span className={styles.presetName} title={name}>{name || '—'}</span>
+                    <span className={styles.presetText} title={desc}>{desc}</span>
+                    <Button size="small" type="link" onClick={() => this.setState({ presetAddVisible: true, presetAddName: item.teamName, presetAddText: item.description, presetEditId: item.id })}>{t('ui.terminal.editItem')}</Button>
+                  </div>
+                );
+              })
             )}
           </div>
           <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>

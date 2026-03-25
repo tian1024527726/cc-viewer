@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.6.40 (2026-03-26)
+
+- Feature: incremental entry-slim for realtime SSE — reduces browser memory O(N²) → O(N) for long sessions (behind `ccv_sseSlim` localStorage flag)
+- Feature: terminal toggle button — collapsible arrow at chat/terminal boundary for quick show/hide
+- Feature: built-in preset shortcuts for Agent Team (Code Reviewer / Code Reviewer Pro) with i18n support, user edits preserved across updates
+- Fix: `restoreSlimmedEntry` defensive check when fullEntry has fewer messages than expected
+- Fix: cacheLoss analysis now restores slimmed prevMainAgent before comparison
+- Test: add 11 unit tests for `createIncrementalSlimmer` and `restoreSlimmedEntry`
+
 ## 1.6.38 (2026-03-25)
 
 - Feature: markdown preview toggle for file browser — `.md` files default to rendered markdown view with text/editor switch button

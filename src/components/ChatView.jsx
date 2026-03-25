@@ -1596,7 +1596,7 @@ class ChatView extends React.Component {
   }
 
   render() {
-    const { mainAgentSessions, cliMode, terminalVisible } = this.props;
+    const { mainAgentSessions, cliMode, terminalVisible, onToggleTerminal } = this.props;
     const { allItems, visibleCount, loading, terminalWidth, lastResponseItems } = this.state;
 
     const noData = !mainAgentSessions || mainAgentSessions.length === 0;
@@ -2077,6 +2077,20 @@ class ChatView extends React.Component {
             )}
             </div>
           </div>
+          {cliMode && onToggleTerminal && (
+            <div
+              className={styles.terminalToggle}
+              onClick={onToggleTerminal}
+              title={terminalVisible ? t('ui.collapseTerminal') : t('ui.expandTerminal')}
+            >
+              <svg viewBox="0 0 8 24" width="8" height="24">
+                {terminalVisible
+                  ? <path d="M4 8 L7 12 L4 16" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                  : <path d="M4 8 L1 12 L4 16" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                }
+              </svg>
+            </div>
+          )}
           {terminalVisible && (
             <>
               <div className={styles.vResizer} onMouseDown={this.handleSplitMouseDown} />

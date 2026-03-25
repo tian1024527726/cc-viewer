@@ -22,7 +22,7 @@ import styles from './App.module.css';
 import { apiUrl } from './utils/apiUrl';
 import { saveEntries, loadEntries, clearEntries, getCacheMeta } from './utils/entryCache';
 import { reconstructEntries } from '../lib/delta-reconstructor.js';
-import { createEntrySlimmer } from './utils/entry-slim.js';
+import { createEntrySlimmer, createIncrementalSlimmer } from './utils/entry-slim.js';
 
 class App extends React.Component {
   constructor(props) {
@@ -89,6 +89,9 @@ class App extends React.Component {
     this._cacheLossProcessedCount = 0;
     this._cacheLossLastMainAgent = null;
     this._cacheLossShowAll = undefined;
+    // P0 perf: 实时 SSE 增量剪枝（默认关闭，localStorage ccv_sseSlim=true 启用）
+    this._sseSlimEnabled = !isMobile && localStorage.getItem('ccv_sseSlim') === 'true';
+    this._sseSlimmer = null;
   }
 
   /** Rebuild the O(1) request dedup index from a full entries array. */
@@ -102,6 +105,7 @@ class App extends React.Component {
     this._cacheLossProcessedCount = 0;
     this._cacheLossLastMainAgent = null;
     this._cacheLossMap = new Map();
+    this._sseSlimmer = null;
   }
 
   componentDidMount() {
@@ -248,6 +252,7 @@ class App extends React.Component {
     if (this.eventSource) { this.eventSource.close(); this.eventSource = null; }
     if (this._flushRafId) { cancelAnimationFrame(this._flushRafId); this._flushRafId = null; }
     this._pendingEntries = [];
+    this._sseSlimmer = null;
     if (this._sseReconnectTimer) clearTimeout(this._sseReconnectTimer);
     this._sseReconnectTimer = setTimeout(() => { this.initSSE(); }, 2000);
   }
@@ -568,14 +573,24 @@ class App extends React.Component {
       let cacheType = prev.cacheType;
       let mainAgentSessions = prev.mainAgentSessions;
 
+      // P0 perf: lazy init 增量剪枝器
+      if (this._sseSlimEnabled && !this._sseSlimmer) {
+        this._sseSlimmer = createIncrementalSlimmer(isMainAgent);
+      }
+
       for (const entry of batch) {
         const key = `${entry.timestamp}|${entry.url}`;
         const existingIndex = this._requestIndexMap.get(key);
 
         if (existingIndex !== undefined) {
           requests[existingIndex] = entry;
+          if (this._sseSlimmer) this._sseSlimmer.onDedup(existingIndex);
         } else {
-          this._requestIndexMap.set(key, requests.length);
+          const newIdx = requests.length;
+          // processEntry 在 push 前调用：slimmer 需要修改 requests 中的 prev entry，
+          // _fullEntryIndex = newIdx 指向即将 push 的位置，push 紧随其后保证索引有效
+          if (this._sseSlimmer) this._sseSlimmer.processEntry(entry, requests, newIdx);
+          this._requestIndexMap.set(key, newIdx);
           requests.push(entry);
         }
 
@@ -604,8 +619,8 @@ class App extends React.Component {
           }
         }
 
-        // 合并 mainAgent sessions
-        if (isMainAgent(entry) && entry.body && Array.isArray(entry.body.messages)) {
+        // 合并 mainAgent sessions（跳过被剪枝的 entry，其 messages 已被清空）
+        if (isMainAgent(entry) && entry.body && Array.isArray(entry.body.messages) && !entry._slimmed) {
           const timestamp = entry.timestamp || new Date().toISOString();
           const lastSession = mainAgentSessions.length > 0 ? mainAgentSessions[mainAgentSessions.length - 1] : null;
           const prevMessages = lastSession?.messages || [];
@@ -711,7 +726,7 @@ class App extends React.Component {
   buildSessionsFromEntries(entries) {
     let sessions = [];
     for (const entry of entries) {
-      if (isMainAgent(entry) && entry.body && Array.isArray(entry.body.messages)) {
+      if (isMainAgent(entry) && entry.body && Array.isArray(entry.body.messages) && !entry._slimmed) {
         sessions = this.mergeMainAgentSessions(sessions, entry);
       }
     }
@@ -2037,7 +2052,7 @@ class App extends React.Component {
               )
             )}
             <div style={{ display: viewMode === 'chat' ? 'flex' : 'none', height: '100%', flexDirection: 'column' }}>
-              <ChatView requests={filteredRequests} mainAgentSessions={mainAgentSessions} userProfile={this.state.userProfile} collapseToolResults={this.state.collapseToolResults} expandThinking={this.state.expandThinking} onViewRequest={this.handleViewRequest} scrollToTimestamp={this.state.chatScrollToTs} onScrollTsDone={this.handleScrollTsDone} cliMode={this._isLocalLog ? false : this.state.cliMode} terminalVisible={this._isLocalLog ? false : this.state.terminalVisible} pendingUploadPaths={this.state.pendingUploadPaths} onUploadPathsConsumed={this.handleUploadPathsConsumed} />
+              <ChatView requests={filteredRequests} mainAgentSessions={mainAgentSessions} userProfile={this.state.userProfile} collapseToolResults={this.state.collapseToolResults} expandThinking={this.state.expandThinking} onViewRequest={this.handleViewRequest} scrollToTimestamp={this.state.chatScrollToTs} onScrollTsDone={this.handleScrollTsDone} cliMode={this._isLocalLog ? false : this.state.cliMode} terminalVisible={this._isLocalLog ? false : this.state.terminalVisible} onToggleTerminal={() => this.setState(prev => ({ terminalVisible: !prev.terminalVisible }))} pendingUploadPaths={this.state.pendingUploadPaths} onUploadPathsConsumed={this.handleUploadPathsConsumed} />
             </div>
           </Layout.Content>
           <div className={styles.footer}>

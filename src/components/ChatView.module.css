@@ -52,6 +52,29 @@
   background: #2a2a2a;
 }
 
+.terminalToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 14px;
+  height: 48px;
+  margin-left: -14px;
+  flex-shrink: 0;
+  cursor: pointer;
+  color: #555;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px 0 0 4px;
+  transition: background 0.2s, color 0.2s;
+  z-index: 20;
+  position: relative;
+}
+
+.terminalToggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #999;
+}
+
 .snapLine {
   position: absolute;
   top: 0;

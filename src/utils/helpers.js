@@ -1,4 +1,5 @@
 import { isSkillText, isMainAgent } from './contentFilter.js';
+import { restoreSlimmedEntry } from './entry-slim.js';
 import modelClaudeUrl from '../img/model-claude.svg';
 import modelOpenaiUrl from '../img/model-openai.svg';
 import modelGeminiUrl from '../img/model-gemini.svg';
@@ -42,7 +43,10 @@ export function appendCacheLossMap(map, requests, startIndex, prevMainAgent) {
         const cacheCreate = usage.cache_creation_input_tokens || 0;
         const cacheRead = usage.cache_read_input_tokens || 0;
         if (cacheCreate > 0 && cacheCreate > cacheRead) {
-          const loss = _computeCacheLoss(prevMainAgent, req);
+          const prev = prevMainAgent._slimmed
+            ? restoreSlimmedEntry(prevMainAgent, requests)
+            : prevMainAgent;
+          const loss = _computeCacheLoss(prev, req);
           if (loss) map.set(i, loss);
         }
       }
@@ -139,6 +143,10 @@ export function analyzeCacheLoss(requests, index) {
 
   // 冷启动首条，不标记
   if (!prevMainAgent) return null;
+  // 还原被剪枝的 prev entry 以确保 messages 比较精确
+  if (prevMainAgent._slimmed) {
+    prevMainAgent = restoreSlimmedEntry(prevMainAgent, requests);
+  }
 
   const gap = req.timestamp - prevMainAgent.timestamp;
   if (gap > 5 * 60 * 1000) return { reason: 'ttl' };
