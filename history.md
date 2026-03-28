@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.6.54 (2026-03-28)
+
+- Feature: Plan approval GUI — display plan content preview and interactive Approve/Edit/Reject buttons in conversation view (ExitPlanMode)
+- Feature: Dangerous operation approval GUI — amber-colored approval card for CLI permission prompts (Bash/Edit/Write) with Allow/Deny buttons
+- Feature: Permission denied detection — tool_result with `is_error` and rejection text shown as red "Denied" badge with original text
+- Fix: multi-select Other (Type something) submission — use ↑ instead of ↓ to exit text input mode, add isMultiQuestion condition for Enter
+- Fix: sub-agent React key collision — add requestIndex to key for same-timestamp messages
+- i18n: add planApproveWithEdits, dangerApproval, dangerDenied keys (18 languages)
+- Robustness: null safety guards for isPlanApprovalPrompt, isDangerousOperationPrompt, planOptions, opt.text, renderDangerApproval
+- Robustness: _promptSubmitting debounce to prevent double-click on approval buttons
+- Robustness: reset latestPlanContent after plan approval to prevent cross-cycle content leak
+
 ## 1.6.49 (2026-03-28)
 
 - Refactor: separate Mobile/PC entry points with AppBase class inheritance — split App.jsx (2202 lines) into AppBase.jsx (shared), App.jsx (PC), Mobile.jsx (mobile) with dynamic import code splitting

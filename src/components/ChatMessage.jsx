@@ -368,6 +368,33 @@ class ChatMessage extends React.Component {
       const isPending = approval.status === 'pending';
       const isInteractive = isPending && this.props.cliMode && tu.id === this.props.lastPendingPlanId;
 
+      // pending 状态下提取 plan 内容：
+      // 1. 优先从跨消息追踪的 latestPlanContent（Write 到 .claude/plans/ 的内容，可能在前 1-2 个请求中）
+      // 2. 回退到同一 response 中 Write 工具的内容
+      // 3. 最后回退到 ExitPlanMode 之前的 text blocks
+      let planTextContent = null;
+      if (isPending) {
+        planTextContent = this.props.latestPlanContent || null;
+        if (!planTextContent && Array.isArray(this.props.content)) {
+          for (const b of this.props.content) {
+            if (b === tu) break;
+            if (b.type === 'tool_use' && b.name === 'Write'
+              && b.input?.file_path && /\.claude\/plans\//i.test(b.input.file_path)
+              && b.input.content) {
+              planTextContent = b.input.content;
+            }
+          }
+        }
+        if (!planTextContent && Array.isArray(this.props.content)) {
+          const texts = [];
+          for (const b of this.props.content) {
+            if (b === tu) break;
+            if (b.type === 'text' && b.text) texts.push(b.text);
+          }
+          planTextContent = texts.join('\n\n').trim() || null;
+        }
+      }
+
       // 已批准且有计划内容 → 渲染为蓝色边框的 plan 视图
       if (approval.status === 'approved' && approval.planContent) {
         return (
@@ -382,11 +409,11 @@ class ChatMessage extends React.Component {
         ? this.props.ptyPrompt
         : this.props.activePlanPrompt || null;
       const defaultPlanOptions = [
-        { number: 1, text: 'Approve plan', selected: true },
-        { number: 2, text: 'Approve plan with edits', selected: false },
-        { number: 3, text: 'Deny plan', selected: false },
+        { number: 1, text: t('ui.planApprove'), selected: true },
+        { number: 2, text: t('ui.planApproveWithEdits'), selected: false },
+        { number: 3, text: t('ui.planReject'), selected: false },
       ];
-      const planOptions = detectedPrompt ? detectedPrompt.options : defaultPlanOptions;
+      const planOptions = (detectedPrompt?.options?.length) ? detectedPrompt.options : defaultPlanOptions;
       const statusClass = approval.status === 'approved' ? styles.planStatusApproved
         : approval.status === 'rejected' ? styles.planStatusRejected
         : styles.planStatusPending;
@@ -402,6 +429,11 @@ class ChatMessage extends React.Component {
               <span className={`${styles.planStatusBadge} ${statusClass}`}>{statusIcon} {t(statusKey)}</span>
             )}
           </div>
+          {isPending && planTextContent && (
+            <div className={styles.planContentPreview}>
+              <div className="chat-md" dangerouslySetInnerHTML={{ __html: renderMarkdown(planTextContent) }} />
+            </div>
+          )}
           {prompts.length > 0 && (
             <div className={styles.planModePermissions}>
               <div className={styles.planModePermLabel}>{t('ui.allowedPrompts')}</div>
@@ -412,12 +444,12 @@ class ChatMessage extends React.Component {
           )}
           {isInteractive && !this.state.planFeedbackInput && (
             <div className={styles.planApprovalActions}>
-              {planOptions.map(opt => {
-                const txt = opt.text.toLowerCase();
+              {planOptions.map((opt, optIdx) => {
+                const txt = (opt.text || '').toLowerCase();
                 let btnCls = styles.planOptionBtn;
-                if (/yes|approve|accept|proceed/i.test(txt)) btnCls = styles.planApproveBtn;
-                else if (/no|reject|deny|feedback/i.test(txt)) btnCls = styles.planRejectBtn;
-                const isFeedbackOpt = /type|tell|change|feedback|edit/i.test(opt.text);
+                if (/yes|approve|accept|proceed/i.test(txt) || (detectedPrompt == null && optIdx === 0)) btnCls = styles.planApproveBtn;
+                else if (/no|reject|deny|feedback/i.test(txt) || (detectedPrompt == null && optIdx === 2)) btnCls = styles.planRejectBtn;
+                const isFeedbackOpt = /type|tell|change|feedback|edit/i.test(opt.text || '') || (detectedPrompt == null && optIdx === 1);
                 return (
                   <button key={opt.number} className={btnCls} onClick={() => {
                     if (isFeedbackOpt) {
@@ -499,6 +531,34 @@ class ChatMessage extends React.Component {
       );
     });
     return box(toolLabel, <div className={styles.kvContainer}>{items}</div>);
+  }
+
+  renderDangerApproval(toolId, dangerPrompt) {
+    if (!dangerPrompt) return null;
+    const options = dangerPrompt.options || [];
+    return (
+      <div key={`danger-${toolId}`} className={styles.dangerApprovalBox}>
+        <div className={styles.dangerApprovalHeader}>
+          <span className={styles.dangerApprovalIcon}>⚠</span>
+          <span className={styles.dangerApprovalLabel}>{t('ui.dangerApproval')}</span>
+        </div>
+        <div className={styles.dangerApprovalActions}>
+          {options.map(opt => {
+            const txt = (opt.text || '').toLowerCase();
+            let btnCls = styles.dangerOptionBtn;
+            if (/^no/i.test(txt) || /deny/i.test(txt)) btnCls = styles.dangerRejectBtn;
+            else if (/^yes/i.test(txt) || /allow/i.test(txt)) btnCls = styles.dangerApproveBtn;
+            return (
+              <button key={opt.number} className={btnCls} onClick={() => {
+                if (this.props.onDangerousApprovalClick) this.props.onDangerousApprovalClick(opt.number);
+              }}>
+                {opt.text}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
   }
 
   renderAskQuestionInteractive(toolId, questions) {
@@ -684,9 +744,19 @@ class ChatMessage extends React.Component {
       }
     });
 
-    toolUseBlocks.forEach(tu => {
+    toolUseBlocks.forEach((tu, tuIdx) => {
       innerContent.push(this.renderToolCall(tu));
+
       const tr = toolResultMap[tu.id];
+
+      // 危险操作审批卡片：第一个无 tool_result 的 tool_use + 有活跃的 dangerous prompt
+      const isFirstPendingTool = !tr && !toolUseBlocks.slice(0, tuIdx).some(t2 => !toolResultMap[t2.id]);
+      if (isFirstPendingTool && this.props.activeDangerousPrompt && this.props.cliMode) {
+        const dp = this.props.activeDangerousPrompt;
+        innerContent.push(this.renderDangerApproval(tu.id, dp));
+      }
+
+      // 权限拒绝的 tool_result 加红色标记
       if (tr) {
         // 已批准的 ExitPlanMode 计划内容已在 renderToolCall 中渲染，隐藏重复的 tool_result
         const planApprovalMap = this.props.planApprovalMap || {};
@@ -694,9 +764,22 @@ class ChatMessage extends React.Component {
         if (tu.name === 'ExitPlanMode' && approval && approval.status === 'approved' && approval.planContent) {
           // skip tool result — plan content already shown
         } else {
-          innerContent.push(
-            <React.Fragment key={`tr-${tu.id}`}>{this.renderToolResult(tr)}</React.Fragment>
-          );
+          if (tr.isPermissionDenied) {
+            innerContent.push(
+              <React.Fragment key={`tr-denied-${tu.id}`}>
+                <div className={styles.dangerApprovalBox} style={{ borderColor: '#ef4444' }}>
+                  <span className={styles.dangerDeniedBadge}>✗ {t('ui.dangerDenied')}</span>
+                  {tr.resultText && (
+                    <div className={styles.dangerDeniedDetail}>{tr.resultText}</div>
+                  )}
+                </div>
+              </React.Fragment>
+            );
+          } else {
+            innerContent.push(
+              <React.Fragment key={`tr-${tu.id}`}>{this.renderToolResult(tr)}</React.Fragment>
+            );
+          }
         }
       }
     });

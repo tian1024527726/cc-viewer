@@ -196,9 +196,16 @@ function randomInterval() {
 }
 
 export function isPlanApprovalPrompt(prompt) {
-  if (!prompt) return false;
+  if (!prompt || !prompt.question) return false;
   const q = prompt.question.toLowerCase();
   return /plan/i.test(q) && (/approv/i.test(q) || /proceed/i.test(q) || /accept/i.test(q));
+}
+
+export function isDangerousOperationPrompt(prompt) {
+  if (!prompt || !prompt.question) return false;
+  const q = prompt.question;
+  if (isPlanApprovalPrompt(prompt)) return false;
+  return /do you want to proceed|allow.*to|want to allow/i.test(q);
 }
 
 // --- 单 pass 增量 tool result 构建 ---
@@ -213,6 +220,7 @@ function createEmptyToolState() {
     editSnapshotMap: {},
     askAnswerMap: {},
     planApprovalMap: {},
+    latestPlanContent: null,
     _fileState: {},
   };
 }
@@ -232,6 +240,11 @@ function appendToolResultMap(state, messages, startIndex) {
             } catch {}
           }
           toolUseMap[parsed.id] = parsed;
+          // Write → .claude/plans/ 文件内容追踪
+          if (parsed.name === 'Write' && parsed.input?.file_path
+            && /\.claude\/plans\//i.test(parsed.input.file_path) && parsed.input.content) {
+            state.latestPlanContent = parsed.input.content;
+          }
           // Edit → editSnapshotMap + _fileState 更新
           if (parsed.name === 'Edit' && parsed.input) {
             const fp = parsed.input.file_path;
@@ -284,7 +297,9 @@ function appendToolResultMap(state, messages, startIndex) {
             }
           }
           const resultText = extractToolResultText(block);
-          toolResultMap[block.tool_use_id] = { label, toolName, toolInput, resultText };
+          const isError = !!block.is_error;
+          const isPermissionDenied = isError && /doesn't want to proceed|Permission.*denied|rejected.*tool use|interrupted by user for tool use/i.test(resultText);
+          toolResultMap[block.tool_use_id] = { label, toolName, toolInput, resultText, isError, isPermissionDenied };
           if (matchedTool && matchedTool.name === 'Read' && matchedTool.input?.file_path) {
             readContentMap[matchedTool.input.file_path] = resultText;
             // _fileState 更新（行号解析）
@@ -324,6 +339,9 @@ function appendToolResultMap(state, messages, startIndex) {
           }
           if (matchedTool && matchedTool.name === 'ExitPlanMode') {
             planApprovalMap[block.tool_use_id] = parsePlanApproval(resultText);
+            // Plan 审批完成（approved/rejected）后重置 latestPlanContent，
+            // 防止下一个 plan 周期显示旧内容
+            state.latestPlanContent = null;
           }
         }
       }
@@ -813,10 +831,13 @@ class ChatView extends React.Component {
       cached = this._incToolState;
       _toolResultCache.set(messages, cached);
     }
-    const { toolUseMap, toolResultMap, readContentMap, editSnapshotMap, askAnswerMap, planApprovalMap } = cached;
+    const { toolUseMap, toolResultMap, readContentMap, editSnapshotMap, askAnswerMap, planApprovalMap, latestPlanContent } = cached;
 
     const activePlanPrompt = this.props.cliMode
       ? this.state.ptyPromptHistory.slice().reverse().find(p => isPlanApprovalPrompt(p) && p.status === 'active') || null
+      : null;
+    const activeDangerousPrompt = this.props.cliMode
+      ? this.state.ptyPromptHistory.slice().reverse().find(p => isDangerousOperationPrompt(p) && p.status === 'active') || null
       : null;
 
     // P1: 只允许最后一个 pending 的 ExitPlanMode 卡片交互
@@ -891,11 +912,11 @@ class ChatView extends React.Component {
       } else if (msg.role === 'assistant') {
         if (Array.isArray(content)) {
           renderedMessages.push(
-            <ChatMessage key={`${keyPrefix}-asst-${mi}`} role="assistant" content={content} toolResultMap={toolResultMap} readContentMap={readContentMap} editSnapshotMap={editSnapshotMap} askAnswerMap={askAnswerMap} planApprovalMap={planApprovalMap} timestamp={ts} modelInfo={modelInfo} collapseToolResults={collapseToolResults} expandThinking={expandThinking} showThinkingSummaries={showThinkingSummaries} ptyPrompt={this.state.ptyPrompt} activePlanPrompt={activePlanPrompt} lastPendingPlanId={lastPendingPlanId} lastPendingAskId={lastPendingAskId} onPlanApprovalClick={this.handlePromptOptionClick} onPlanFeedbackSubmit={this.handlePlanFeedbackSubmit} onAskQuestionSubmit={this.handleAskQuestionSubmit} cliMode={this.props.cliMode} onOpenFile={this.handleOpenToolFilePath} {...viewReqProps} />
+            <ChatMessage key={`${keyPrefix}-asst-${mi}`} role="assistant" content={content} toolResultMap={toolResultMap} readContentMap={readContentMap} editSnapshotMap={editSnapshotMap} askAnswerMap={askAnswerMap} planApprovalMap={planApprovalMap} latestPlanContent={latestPlanContent} timestamp={ts} modelInfo={modelInfo} collapseToolResults={collapseToolResults} expandThinking={expandThinking} showThinkingSummaries={showThinkingSummaries} ptyPrompt={this.state.ptyPrompt} activePlanPrompt={activePlanPrompt} activeDangerousPrompt={activeDangerousPrompt} lastPendingPlanId={lastPendingPlanId} lastPendingAskId={lastPendingAskId} onPlanApprovalClick={this.handlePromptOptionClick} onPlanFeedbackSubmit={this.handlePlanFeedbackSubmit} onDangerousApprovalClick={this.handlePromptOptionClick} onAskQuestionSubmit={this.handleAskQuestionSubmit} cliMode={this.props.cliMode} onOpenFile={this.handleOpenToolFilePath} {...viewReqProps} />
           );
         } else if (typeof content === 'string') {
           renderedMessages.push(
-            <ChatMessage key={`${keyPrefix}-asst-${mi}`} role="assistant" content={[{ type: 'text', text: content }]} toolResultMap={toolResultMap} readContentMap={readContentMap} editSnapshotMap={editSnapshotMap} askAnswerMap={askAnswerMap} planApprovalMap={planApprovalMap} timestamp={ts} modelInfo={modelInfo} collapseToolResults={collapseToolResults} expandThinking={expandThinking} showThinkingSummaries={showThinkingSummaries} ptyPrompt={this.state.ptyPrompt} activePlanPrompt={activePlanPrompt} lastPendingPlanId={lastPendingPlanId} lastPendingAskId={lastPendingAskId} onPlanApprovalClick={this.handlePromptOptionClick} onPlanFeedbackSubmit={this.handlePlanFeedbackSubmit} onAskQuestionSubmit={this.handleAskQuestionSubmit} cliMode={this.props.cliMode} onOpenFile={this.handleOpenToolFilePath} {...viewReqProps} />
+            <ChatMessage key={`${keyPrefix}-asst-${mi}`} role="assistant" content={[{ type: 'text', text: content }]} toolResultMap={toolResultMap} readContentMap={readContentMap} editSnapshotMap={editSnapshotMap} askAnswerMap={askAnswerMap} planApprovalMap={planApprovalMap} latestPlanContent={latestPlanContent} timestamp={ts} modelInfo={modelInfo} collapseToolResults={collapseToolResults} expandThinking={expandThinking} showThinkingSummaries={showThinkingSummaries} ptyPrompt={this.state.ptyPrompt} activePlanPrompt={activePlanPrompt} activeDangerousPrompt={activeDangerousPrompt} lastPendingPlanId={lastPendingPlanId} lastPendingAskId={lastPendingAskId} onPlanApprovalClick={this.handlePromptOptionClick} onPlanFeedbackSubmit={this.handlePlanFeedbackSubmit} onDangerousApprovalClick={this.handlePromptOptionClick} onAskQuestionSubmit={this.handleAskQuestionSubmit} cliMode={this.props.cliMode} onOpenFile={this.handleOpenToolFilePath} {...viewReqProps} />
           );
         }
       }
@@ -1055,7 +1076,7 @@ class ChatView extends React.Component {
           const sa = subAgentEntries[subIdx];
           if (sa.timestamp) tsItemMap[sa.timestamp] = allItems.length;
           allItems.push(
-            <ChatMessage key={`sub-${sa.timestamp}`} role="sub-agent-chat" content={sa.content} toolResultMap={sa.toolResultMap} label={sa.label} isTeammate={sa.isTeammate} timestamp={sa.timestamp} collapseToolResults={collapseToolResults} expandThinking={expandThinking} requestIndex={sa.requestIndex} onViewRequest={onViewRequest} onOpenFile={this.handleOpenToolFilePath} />
+            <ChatMessage key={`sub-${sa.requestIndex}-${sa.timestamp}`} role="sub-agent-chat" content={sa.content} toolResultMap={sa.toolResultMap} label={sa.label} isTeammate={sa.isTeammate} timestamp={sa.timestamp} collapseToolResults={collapseToolResults} expandThinking={expandThinking} requestIndex={sa.requestIndex} onViewRequest={onViewRequest} onOpenFile={this.handleOpenToolFilePath} />
           );
           subIdx++;
         }
@@ -1070,7 +1091,7 @@ class ChatView extends React.Component {
         if (nextSessionStart && sa.timestamp > nextSessionStart) break;
         if (sa.timestamp) tsItemMap[sa.timestamp] = allItems.length;
         allItems.push(
-          <ChatMessage key={`sub-${sa.timestamp}`} role="sub-agent-chat" content={sa.content} toolResultMap={sa.toolResultMap} label={sa.label} isTeammate={sa.isTeammate} timestamp={sa.timestamp} collapseToolResults={collapseToolResults} expandThinking={expandThinking} requestIndex={sa.requestIndex} onViewRequest={onViewRequest} onOpenFile={this.handleOpenToolFilePath} />
+          <ChatMessage key={`sub-${sa.requestIndex}-${sa.timestamp}`} role="sub-agent-chat" content={sa.content} toolResultMap={sa.toolResultMap} label={sa.label} isTeammate={sa.isTeammate} timestamp={sa.timestamp} collapseToolResults={collapseToolResults} expandThinking={expandThinking} requestIndex={sa.requestIndex} onViewRequest={onViewRequest} onOpenFile={this.handleOpenToolFilePath} />
         );
         subIdx++;
       }
@@ -1091,9 +1112,13 @@ class ChatView extends React.Component {
             // Last Response 单独存储，不混入主列表
             if (session.entryTimestamp) tsItemMap[session.entryTimestamp] = allItems.length;
             let respLastPendingAskId = null;
+            let respLastPendingPlanId = null;
             for (const block of respContent) {
               if (block.type === 'tool_use' && block.name === 'AskUserQuestion') {
                 respLastPendingAskId = block.id;
+              }
+              if (block.type === 'tool_use' && block.name === 'ExitPlanMode') {
+                respLastPendingPlanId = block.id;
               }
             }
             // 收集 Last Response 中所有 AskUserQuestion 的问题文本，用于 prompt 去重
@@ -1108,12 +1133,21 @@ class ChatView extends React.Component {
                 }
               }
             }
+            const _cachedLR = _toolResultCache.get(session.messages) || {};
+            const planApprovalMap = _cachedLR.planApprovalMap || {};
+            const latestPlanContent = _cachedLR.latestPlanContent || null;
+            const activePlanPrompt = this.props.cliMode
+              ? this.state.ptyPromptHistory.slice().reverse().find(p => isPlanApprovalPrompt(p) && p.status === 'active') || null
+              : null;
+            const activeDangerousPrompt = this.props.cliMode
+              ? this.state.ptyPromptHistory.slice().reverse().find(p => isDangerousOperationPrompt(p) && p.status === 'active') || null
+              : null;
             this._lastResponseItems = (
               <React.Fragment key="last-response-group">
                 <Divider style={{ borderColor: '#2a2a2a', margin: '8px 0' }}>
                   <Text type="secondary" className={styles.lastResponseLabel}>{t('ui.lastResponse')}</Text>
                 </Divider>
-                <ChatMessage key="resp-asst" role="assistant" content={respContent} timestamp={session.entryTimestamp} modelInfo={modelInfo} collapseToolResults={collapseToolResults} expandThinking={expandThinking} toolResultMap={{}} askAnswerMap={{}} lastPendingAskId={respLastPendingAskId} cliMode={this.props.cliMode} onAskQuestionSubmit={this.handleAskQuestionSubmit} onOpenFile={this.handleOpenToolFilePath} />
+                <ChatMessage key="resp-asst" role="assistant" content={respContent} timestamp={session.entryTimestamp} modelInfo={modelInfo} collapseToolResults={collapseToolResults} expandThinking={expandThinking} toolResultMap={{}} askAnswerMap={{}} planApprovalMap={planApprovalMap} latestPlanContent={latestPlanContent} lastPendingAskId={respLastPendingAskId} lastPendingPlanId={respLastPendingPlanId} activePlanPrompt={activePlanPrompt} activeDangerousPrompt={activeDangerousPrompt} ptyPrompt={this.state.ptyPrompt} onPlanApprovalClick={this.handlePromptOptionClick} onPlanFeedbackSubmit={this.handlePlanFeedbackSubmit} onDangerousApprovalClick={this.handlePromptOptionClick} cliMode={this.props.cliMode} onAskQuestionSubmit={this.handleAskQuestionSubmit} onOpenFile={this.handleOpenToolFilePath} />
               </React.Fragment>
             );
           }
@@ -1291,6 +1325,9 @@ class ChatView extends React.Component {
         // Don't dismiss plan approval prompts — they stay active until explicitly answered
         return;
       }
+      if (isDangerousOperationPrompt(this.state.ptyPrompt)) {
+        return;
+      }
       if (this._askSubmitting) {
         // Don't dismiss prompts during AskUserQuestion submission
         return;
@@ -1317,10 +1354,17 @@ class ChatView extends React.Component {
   }
 
   handlePromptOptionClick = (number) => {
+    if (this._promptSubmitting) return;
     const ws = this._inputWs;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    const prompt = this.state.ptyPrompt;
-    if (!prompt) return;
+    // ptyPrompt 可能为 null（ExitPlanMode 渲染后 PTY prompt 尚未检测到），
+    // 回退到 ptyPromptHistory 中最近的 active prompt，或构造默认 prompt（光标在第1项）
+    let prompt = this.state.ptyPrompt;
+    if (!prompt) {
+      prompt = this.state.ptyPromptHistory.slice().reverse().find(p => p.status === 'active')
+        || { options: Array.from({ length: Math.max(number, 3) }, (_, i) => ({ number: i + 1, selected: i === 0 })) };
+    }
+    this._promptSubmitting = true;
 
     // Claude Code TUI 使用 Ink SelectInput，需要用箭头键移动光标再回车
     const options = prompt.options;
@@ -1358,13 +1402,17 @@ class ChatView extends React.Component {
     });
     this._ptyBuffer = '';
     if (this._ptyDebounceTimer) clearTimeout(this._ptyDebounceTimer);
+    setTimeout(() => { this._promptSubmitting = false; }, 500);
   };
 
   handlePlanFeedbackSubmit = (number, text) => {
     const ws = this._inputWs;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    const prompt = this.state.ptyPrompt;
-    if (!prompt) return;
+    let prompt = this.state.ptyPrompt;
+    if (!prompt) {
+      prompt = this.state.ptyPromptHistory.slice().reverse().find(p => p.status === 'active')
+        || { options: Array.from({ length: Math.max(number, 3) }, (_, i) => ({ number: i + 1, selected: i === 0 })) };
+    }
 
     const options = prompt.options;
     const targetIdx = options.findIndex(o => o.number === number);
@@ -2688,8 +2736,9 @@ class ChatView extends React.Component {
     ) : null;
 
     const promptBubbles = cliMode && ptyPromptHistory.length > 0 ? ptyPromptHistory.filter(p => {
-      // active plan approval prompt 由 ExitPlanMode 卡片处理，不重复显示
+      // active plan approval / dangerous operation prompt 由专用卡片处理，不重复显示
       if (isPlanApprovalPrompt(p) && p.status === 'active') return false;
+      if (isDangerousOperationPrompt(p) && p.status === 'active') return false;
       // Last Response 中有对应 AskUserQuestion 卡片时，按问题文本精确去重
       if (this._lastResponseAskQuestions && this._lastResponseAskQuestions.size > 0
         && p.status === 'active' && this._lastResponseAskQuestions.has(p.question)) return false;

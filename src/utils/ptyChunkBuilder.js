@@ -141,8 +141,10 @@ export function buildOtherChunks(answer, prompt, isMultiQuestion = false) {
 /**
  * Build chunks for a multi-select "Other" (Type something) answer.
  * "Type something" is a text-input option in the checkbox list.
- * Sequence: navigate → type text + sacrifice_char → → (settle) → ↓ (exit, drops sacrifice_char) → → (Submit tab) → Enter
+ * Sequence: navigate → type text + sacrifice_char → → (settle) → ↑ (exit, drops sacrifice_char) → → (next tab) → Enter (if last)
  * inquirer drops the last char on ↓/↑ exit; sacrifice char absorbs the loss.
+ * Uses ↑ instead of ↓ to exit: "Type something" is the last option, so ↓ keeps cursor there
+ * and → may re-enter text mode. ↑ moves to a non-text option, making → reliably navigate tabs.
  * @param {object} answer - { optionIndex, text, isLast }
  * @param {object} prompt - ptyPrompt with options
  * @param {boolean} isMultiQuestion - whether part of multi-question form
@@ -161,22 +163,27 @@ export function buildMultiSelectOtherChunks(answer, prompt, isMultiQuestion = fa
     chunks.push(ch);
   }
 
-  // Sacrifice char: ↓ drops exactly one character when exiting text input mode.
-  // → is a true no-op in text input mode (cursor right at end of text, no drop).
-  // Append ONE duplicate of the last char so ↓ drops the sacrifice, not the real text.
+  // Sacrifice char: ↑/↓ drops exactly one character when exiting text input mode.
+  // Append ONE duplicate of the last char so the exit key drops the sacrifice, not the real text.
   if (text.length > 0) {
     const chars = [...text]; // handle multi-byte (e.g. CJK) correctly
-    chunks.push(chars[chars.length - 1]); // sacrifice for ↓
+    chunks.push(chars[chars.length - 1]); // sacrifice for ↑
   }
 
   // → in text input mode: no-op (cursor already at end), provides settleMs delay
   chunks.push(ARROW_RIGHT);
-  // ↓ exits text input mode — drops one char (the sacrifice above), real text preserved
-  chunks.push(ARROW_DOWN);
-  // → goes to Submit tab (shows Review page)
+  // ↑ exits text input mode — drops one char (the sacrifice above), real text preserved.
+  // Use ↑ instead of ↓: "Type something" is typically the last option, so ↓ may leave
+  // cursor on the same item (no option below). ↑ moves to the previous *non-text* option,
+  // ensuring the subsequent → is interpreted as tab navigation, not text cursor movement.
+  chunks.push(ARROW_UP);
+  // → goes to next tab (Submit tab for last/single question, next question tab otherwise)
   chunks.push(ARROW_RIGHT);
-  // Enter on Review page's "Submit answers" to confirm
-  chunks.push(ENTER);
+
+  // Enter on Submit/Review page to confirm — only for last question or single-question form
+  if (answer.isLast || !isMultiQuestion) {
+    chunks.push(ENTER);
+  }
 
   return chunks;
 }

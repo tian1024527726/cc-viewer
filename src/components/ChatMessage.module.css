@@ -508,6 +508,18 @@
   color: #60a5fa;
 }
 
+.planContentPreview {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #141428;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #e5e7eb;
+  max-height: min(400px, 50vh);
+  overflow-y: auto;
+  border: 1px solid #1e3a5f;
+}
+
 .planFeedback {
   margin-top: 6px;
   padding: 6px 8px;
@@ -524,6 +536,7 @@
 
 .planApprovalActions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
 }
@@ -571,6 +584,104 @@
 
 .planOptionBtn:hover {
   background: #6b72804d;
+}
+
+.dangerApprovalBox {
+  background: #1f1a0d;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 6px 0;
+  font-size: 12px;
+}
+
+.dangerApprovalHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dangerApprovalIcon {
+  color: #fbbf24;
+  font-size: 14px;
+}
+
+.dangerApprovalLabel {
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.dangerApprovalActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.dangerApproveBtn {
+  padding: 4px 16px;
+  border-radius: 4px;
+  border: 1px solid #22c55e;
+  background: #22c55e26;
+  color: #4ade80;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.dangerApproveBtn:hover {
+  background: #22c55e4d;
+}
+
+.dangerRejectBtn {
+  padding: 4px 16px;
+  border-radius: 4px;
+  border: 1px solid #ef4444;
+  background: #ef444426;
+  color: #f87171;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.dangerRejectBtn:hover {
+  background: #ef44444d;
+}
+
+.dangerOptionBtn {
+  padding: 4px 16px;
+  border-radius: 4px;
+  border: 1px solid #f59e0b;
+  background: #f59e0b26;
+  color: #fbbf24;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.dangerOptionBtn:hover {
+  background: #f59e0b4d;
+}
+
+.dangerDeniedBadge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: #ef444426;
+  color: #f87171;
+  line-height: 1.6;
+}
+
+.dangerDeniedDetail {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #9ca3af;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  max-height: 80px;
+  overflow-y: auto;
 }
 
 .planFeedbackInputWrap {

@@ -75,15 +75,16 @@ function buildMultiSelectOtherChunks(answer, prompt, isMultiQuestion = false) {
   chunks.push(...buildArrows(currentIdx, targetIdx));
   const text = answer.text || '';
   for (const ch of text) chunks.push(ch);
-  // ONE sacrifice char: only ↓ drops a char (→ is a true no-op in text input mode)
   if (text.length > 0) {
     const chars = [...text];
-    chunks.push(chars[chars.length - 1]); // sacrifice for ↓
+    chunks.push(chars[chars.length - 1]); // sacrifice for ↑
   }
-  chunks.push(ARROW_RIGHT); // no-op (cursor at end), provides settle delay
-  chunks.push(ARROW_DOWN);  // exits text input, drops sacrifice char
-  chunks.push(ARROW_RIGHT); // go to Submit tab
-  chunks.push(ENTER);       // confirm Submit answers
+  chunks.push(ARROW_RIGHT); // no-op in text mode, provides settle delay
+  chunks.push(ARROW_UP);    // exit text input, drops sacrifice char, cursor moves UP
+  chunks.push(ARROW_RIGHT); // go to next tab (Submit tab or next question tab)
+  if (answer.isLast || !isMultiQuestion) {
+    chunks.push(ENTER);     // confirm Submit answers (only for last/single question)
+  }
   return chunks;
 }
 
@@ -288,15 +289,15 @@ describe('ptyChunkBuilder', () => {
   // TC-11: 单题多选 Other (Case 11)
   // --------------------------------------------------------------------------
   describe('multi-select Other — single question (Case 11)', () => {
-    it('types text with 1 sacrifice char (↓ drops it), Review Enter confirms', () => {
+    it('types text with 1 sacrifice char (↑ drops it), Review Enter confirms', () => {
       const prompt = makePrompt(3, 0); // Other at index 2
       const answer = { type: 'other', isMultiSelect: true, optionIndex: 2, text: '测试', isLast: true };
       const chunks = buildMultiSelectOtherChunks(answer, prompt);
-      // ↓↓ navigate, '测','试','试'(sacrifice), →(no-op), ↓(drops sacrifice), →(Submit tab), Enter
+      // ↓↓ navigate, '测','试','试'(sacrifice), →(no-op), ↑(drops sacrifice, cursor up), →(Submit tab), Enter
       assert.deepEqual(chunks, [
         ARROW_DOWN, ARROW_DOWN,
         '测', '试', '试',
-        ARROW_RIGHT, ARROW_DOWN, ARROW_RIGHT, ENTER,
+        ARROW_RIGHT, ARROW_UP, ARROW_RIGHT, ENTER,
       ]);
     });
 
@@ -307,7 +308,7 @@ describe('ptyChunkBuilder', () => {
       assert.deepEqual(chunks, [
         ARROW_DOWN,
         'a', 'a',
-        ARROW_RIGHT, ARROW_DOWN, ARROW_RIGHT, ENTER,
+        ARROW_RIGHT, ARROW_UP, ARROW_RIGHT, ENTER,
       ]);
     });
 
@@ -318,7 +319,7 @@ describe('ptyChunkBuilder', () => {
       assert.deepEqual(chunks, [
         ARROW_DOWN, ARROW_DOWN,
         'h', 'e', 'l', 'l', 'o', 'o',
-        ARROW_RIGHT, ARROW_DOWN, ARROW_RIGHT, ENTER,
+        ARROW_RIGHT, ARROW_UP, ARROW_RIGHT, ENTER,
       ]);
     });
 
@@ -328,7 +329,7 @@ describe('ptyChunkBuilder', () => {
       const chunks = buildMultiSelectOtherChunks(answer, prompt);
       assert.deepEqual(chunks, [
         ARROW_DOWN,
-        ARROW_RIGHT, ARROW_DOWN, ARROW_RIGHT, ENTER,
+        ARROW_RIGHT, ARROW_UP, ARROW_RIGHT, ENTER,
       ]);
     });
   });
@@ -349,16 +350,15 @@ describe('ptyChunkBuilder', () => {
       ]);
     });
 
-    it('Q2 multi-select Other (not last): 1 sacrifice char, ↓ exit, → tab (no Enter)', () => {
+    it('Q2 multi-select Other (not last): 1 sacrifice char, ↑ exit, → tab, NO Enter', () => {
       const prompt = makePrompt(3, 0);
       const answer = { type: 'other', isMultiSelect: true, optionIndex: 2, text: '测试', isLast: false };
-      // When not last, buildMultiSelectOtherChunks still sends full sequence
-      // (multi-select Other is always a single PTY submission)
       const chunks = buildMultiSelectOtherChunks(answer, prompt, true);
+      // Not last question: no Enter at the end
       assert.deepEqual(chunks, [
         ARROW_DOWN, ARROW_DOWN,
         '测', '试', '试',
-        ARROW_RIGHT, ARROW_DOWN, ARROW_RIGHT, ENTER,
+        ARROW_RIGHT, ARROW_UP, ARROW_RIGHT,
       ]);
     });
 
@@ -376,7 +376,7 @@ describe('ptyChunkBuilder', () => {
       assert.deepEqual(chunks, [
         ARROW_DOWN, ARROW_DOWN,
         'a', 'b', 'c', 'c',
-        ARROW_RIGHT, ARROW_DOWN, ARROW_RIGHT, ENTER,
+        ARROW_RIGHT, ARROW_UP, ARROW_RIGHT, ENTER,
       ]);
     });
   });

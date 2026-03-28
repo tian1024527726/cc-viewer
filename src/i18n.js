@@ -3769,6 +3769,14 @@ const i18nData = {
     "ar": "موافقة", "no": "Godkjenn", "pt-BR": "Aprovar",
     "th": "อนุมัติ", "tr": "Onayla", "uk": "Схвалити"
   },
+  "ui.planApproveWithEdits": {
+    "zh": "批准并修改", "en": "Approve with edits", "zh-TW": "批准並修改",
+    "ko": "수정 후 승인", "ja": "修正して承認", "de": "Mit Änderungen genehmigen",
+    "es": "Aprobar con cambios", "fr": "Approuver avec modifications", "it": "Approva con modifiche",
+    "da": "Godkend med ændringer", "pl": "Zatwierdź ze zmianami", "ru": "Одобрить с правками",
+    "ar": "موافقة مع تعديلات", "no": "Godkjenn med endringer", "pt-BR": "Aprovar com edições",
+    "th": "อนุมัติพร้อมแก้ไข", "tr": "Düzenlemelerle onayla", "uk": "Схвалити зі змінами"
+  },
   "ui.planReject": {
     "zh": "拒绝", "en": "Reject", "zh-TW": "拒絕",
     "ko": "거부", "ja": "拒否", "de": "Ablehnen",
@@ -3800,6 +3808,22 @@ const i18nData = {
     "da": "Send", "pl": "Wyślij", "ru": "Отправить",
     "ar": "إرسال", "no": "Send", "pt-BR": "Enviar",
     "th": "ส่ง", "tr": "Gönder", "uk": "Надіслати"
+  },
+  "ui.dangerApproval": {
+    "zh": "操作待审批", "en": "Approval Required", "zh-TW": "操作待審批",
+    "ko": "승인 필요", "ja": "承認が必要", "de": "Genehmigung erforderlich",
+    "es": "Aprobación requerida", "fr": "Approbation requise", "it": "Approvazione richiesta",
+    "da": "Godkendelse påkrævet", "pl": "Wymagana akceptacja", "ru": "Требуется одобрение",
+    "ar": "موافقة مطلوبة", "no": "Godkjenning påkrevd", "pt-BR": "Aprovação necessária",
+    "th": "ต้องการการอนุมัติ", "tr": "Onay gerekli", "uk": "Потрібне схвалення"
+  },
+  "ui.dangerDenied": {
+    "zh": "已拒绝", "en": "Denied", "zh-TW": "已拒絕",
+    "ko": "거부됨", "ja": "拒否", "de": "Verweigert",
+    "es": "Denegado", "fr": "Refusé", "it": "Negato",
+    "da": "Afvist", "pl": "Odmowa", "ru": "Отказано",
+    "ar": "مرفوض", "no": "Avslått", "pt-BR": "Negado",
+    "th": "ถูกปฏิเสธ", "tr": "Reddedildi", "uk": "Відмовлено"
   },
   "ui.context.systemPrompt": {
     "zh": "系统提示词", "en": "System Prompt", "zh-TW": "系統提示詞",
