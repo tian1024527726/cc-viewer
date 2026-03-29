@@ -24,6 +24,7 @@ import { Virtuoso } from 'react-virtuoso';
 import { isMobile } from '../env';
 import { t } from '../i18n';
 import { apiUrl } from '../utils/apiUrl';
+import { BUILTIN_PRESETS } from '../utils/builtinPresets';
 import styles from './ChatView.module.css';
 
 const { Text } = Typography;
@@ -101,6 +102,8 @@ class ChatView extends React.Component {
       roleFilterHidden: new Set(),
       teamModalSession: null,
       mdLightboxSrc: null,
+      streamingFading: false,
+      presetItems: [],
     };
     this._processedToolIds = new Set();
     this._projectDirCache = null; // 缓存项目目录绝对路径
@@ -207,6 +210,8 @@ class ChatView extends React.Component {
     if (this.state.needsInitialSnap && this.props.cliMode && this.props.terminalVisible) {
       this._snapToInitialPosition();
     }
+    // 加载 Agent Team 预置项
+    this._loadPresets();
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -220,11 +225,20 @@ class ChatView extends React.Component {
       nextProps.terminalVisible !== this.props.terminalVisible ||
       nextProps.userProfile !== this.props.userProfile ||
       nextProps.pendingUploadPaths !== this.props.pendingUploadPaths ||
+      nextProps.isStreaming !== this.props.isStreaming ||
       nextState !== this.state
     );
   }
 
   componentDidUpdate(prevProps) {
+    // Streaming border fade-out: when isStreaming goes from true to false, trigger fade
+    if (prevProps.isStreaming && !this.props.isStreaming) {
+      this.setState({ streamingFading: true });
+      clearTimeout(this._streamingFadeTimer);
+      this._streamingFadeTimer = setTimeout(() => {
+        this.setState({ streamingFading: false });
+      }, 500);
+    }
     // Handle files dropped onto the app
     if (this.props.pendingUploadPaths && this.props.pendingUploadPaths.length > 0
       && this.props.pendingUploadPaths !== prevProps.pendingUploadPaths) {
@@ -316,6 +330,7 @@ class ChatView extends React.Component {
     if (this._waitForWsTimer) clearTimeout(this._waitForWsTimer);
     if (this._waitForPtyTimer) clearTimeout(this._waitForPtyTimer);
     if (this._planFeedbackTimer) clearTimeout(this._planFeedbackTimer);
+    if (this._streamingFadeTimer) clearTimeout(this._streamingFadeTimer);
     this._unbindScrollFade();
     if (!isMobile) this._unbindStickyScroll();
     if (this._inputWs) {
@@ -366,7 +381,9 @@ class ChatView extends React.Component {
         if (this.props.onScrollTsDone) this.props.onScrollTsDone();
         return;
       }
-      // stickyBottom 由 Virtuoso followOutput 自动处理
+      if (this.state.stickyBottom) {
+        this.virtuosoRef.current.scrollToIndex({ index: 'LAST', behavior: 'auto' });
+      }
       return;
     }
     // 桌面端：原有逻辑
@@ -403,9 +420,9 @@ class ChatView extends React.Component {
         const el = this.containerRef.current;
         if (!el) return;
         const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
-        if (this.state.stickyBottom && gap > 30) {
+        if (this.state.stickyBottom && gap > 50) {
           this.setState({ stickyBottom: false });
-        } else if (!this.state.stickyBottom && gap <= 5) {
+        } else if (!this.state.stickyBottom && gap <= 10) {
           this.setState({ stickyBottom: true });
         }
       });
@@ -917,6 +934,45 @@ class ChatView extends React.Component {
     const text = this._extractSuggestion();
     this.setState({ inputSuggestion: text || null });
   }
+
+  _loadPresets() {
+    // 判断 Agent Team 是否启用
+    let agentTeamEnabled = false;
+    fetch(apiUrl('/api/claude-settings')).then(r => r.json()).then(data => {
+      agentTeamEnabled = data?.env?.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === '1';
+    }).catch(() => {}).then(() => {
+      if (!agentTeamEnabled) return;
+      // 加载预置快捷方式，合并内置预置
+      fetch(apiUrl('/api/preferences')).then(r => r.json()).then(data => {
+        const dismissed = Array.isArray(data.dismissedBuiltinPresets) ? new Set(data.dismissedBuiltinPresets) : new Set();
+        let items = [];
+        if (Array.isArray(data.presetShortcuts)) {
+          items = data.presetShortcuts.map((item, i) => {
+            if (typeof item === 'string') return { id: Date.now() + i, teamName: '', description: item };
+            return { id: Date.now() + i, teamName: item.teamName || '', description: item.description || '',
+              ...(item.builtinId ? { builtinId: item.builtinId } : {}), ...(item.modified ? { modified: true } : {}) };
+          });
+        }
+        const existingBuiltinIds = new Set(items.filter(i => i.builtinId).map(i => i.builtinId));
+        for (const bp of BUILTIN_PRESETS) {
+          if (dismissed.has(bp.builtinId) || existingBuiltinIds.has(bp.builtinId)) continue;
+          items.unshift({ id: Date.now() + Math.random(), builtinId: bp.builtinId, teamName: bp.teamName, description: bp.description });
+        }
+        this.setState({ presetItems: items });
+      }).catch(() => {});
+    });
+  }
+
+  handlePresetSend = (description) => {
+    if (!description) return;
+    const textarea = this._inputRef.current;
+    if (!textarea) return;
+    textarea.value = description;
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, isMobile ? 160 : 120) + 'px';
+    this.setState({ inputEmpty: false });
+    textarea.focus();
+  };
 
   connectInputWs() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -1829,16 +1885,34 @@ class ChatView extends React.Component {
         )}
         {isMobile ? (
           this._virtuosoHeader = loadMoreBtn,
-          this._virtuosoFooter = <>{filteredLastResponseItems}{pendingBubble}</>,
+          this._virtuosoFooter = <>{(this.props.isStreaming || this.state.streamingFading) && (
+            <div className={styles.streamingSpinnerWrap} style={this.state.streamingFading ? { opacity: 0 } : undefined}>
+              <svg width="20" height="20" viewBox="0 0 20 20">
+                <defs>
+                  <linearGradient id="ccv-spinnerGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="white" stopOpacity="1" />
+                    <stop offset="100%" stopColor="white" stopOpacity="0.1" />
+                  </linearGradient>
+                </defs>
+                <circle cx="10" cy="10" r="7.5" fill="none" strokeWidth="2"
+                  stroke="url(#ccv-spinnerGrad)" strokeLinecap="round"
+                  pathLength="100" strokeDasharray="75 25">
+                  <animateTransform attributeName="transform" type="rotate"
+                    from="0 10 10" to="360 10 10" dur="0.8s" repeatCount="indefinite" />
+                </circle>
+              </svg>
+            </div>
+          )}{filteredLastResponseItems}{pendingBubble}</>,
           <Virtuoso
             ref={this.virtuosoRef}
             className={styles.mobileVirtuoso}
             data={visible}
+            initialTopMostItemIndex={Math.max(0, visible.length - 1)}
             followOutput={this.state.stickyBottom ? 'smooth' : false}
             atBottomStateChange={(atBottom) => {
               if (atBottom !== this.state.stickyBottom) this.setState({ stickyBottom: atBottom });
             }}
-            atBottomThreshold={30}
+            atBottomThreshold={60}
             increaseViewportBy={{ top: 400, bottom: 200 }}
             computeItemKey={(index) => visible[index]?.key || `v-${index}`}
             itemContent={(index) => {
@@ -1850,10 +1924,11 @@ class ChatView extends React.Component {
               return isScrollTarget ? <div ref={this._scrollTargetRef}>{el}</div> : el;
             }}
             scrollerRef={(ref) => { this._virtuosoScrollerEl = ref; }}
+            context={{ header: this._virtuosoHeader, footer: this._virtuosoFooter }}
             components={this._virtuosoComponents || (this._virtuosoComponents = {
               Scroller: VirtuosoScroller,
-              Header: () => this._virtuosoHeader,
-              Footer: () => this._virtuosoFooter,
+              Header: ({ context }) => context.header,
+              Footer: ({ context }) => context.footer,
             })}
           />
         ) : (
@@ -1873,6 +1948,24 @@ class ChatView extends React.Component {
                 ? <div key={item.key + '-anchor'} ref={this._scrollTargetRef}>{el}</div>
                 : el;
             })}
+            {(this.props.isStreaming || this.state.streamingFading) && (
+              <div className={styles.streamingSpinnerWrap} style={this.state.streamingFading ? { opacity: 0 } : undefined}>
+                <svg width="20" height="20" viewBox="0 0 20 20">
+                  <defs>
+                    <linearGradient id="ccv-spinnerGrad-desktop" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="white" stopOpacity="1" />
+                      <stop offset="100%" stopColor="white" stopOpacity="0.1" />
+                    </linearGradient>
+                  </defs>
+                  <circle cx="10" cy="10" r="7.5" fill="none" strokeWidth="2"
+                    stroke="url(#ccv-spinnerGrad-desktop)" strokeLinecap="round"
+                    pathLength="100" strokeDasharray="75 25">
+                    <animateTransform attributeName="transform" type="rotate"
+                      from="0 10 10" to="360 10 10" dur="0.8s" repeatCount="indefinite" />
+                  </circle>
+                </svg>
+              </div>
+            )}
             {filteredLastResponseItems && (
               targetIdx != null && targetIdx >= visible.length
                 ? <div key="last-resp-anchor" ref={this._scrollTargetRef}>{filteredLastResponseItems}</div>
@@ -2047,6 +2140,10 @@ class ChatView extends React.Component {
               onSend={this.handleInputSend}
               onSuggestionClick={this.handleSuggestionToTerminal}
               onUploadPath={this.handleUploadPath}
+              presetItems={this.state.presetItems}
+              onPresetSend={this.handlePresetSend}
+              isStreaming={this.props.isStreaming}
+              streamingFading={this.state.streamingFading}
             />
             </div>
           </div>

@@ -1,7 +1,15 @@
 # Changelog
 
-## 1.6.63 (2026-03-29)
+## 1.6.63 (2026-03-30)
 
+- Feature: streaming state tracking — real-time SSE broadcast of Claude API streaming status
+- Feature: SVG streaming border animation on chat input (5-layer gradient trail, mobile + desktop)
+- Feature: loading spinner in message list during streaming (Virtuoso footer + desktop)
+- Feature: Agent Team preset menu in chat input (+) button — fill textarea for review before send
+- Feature: iOS mobile panel swap — chat as primary, terminal as overlay (iOS Safari compatibility)
+- Fix: `resetStreamingState()` infinite recursion bug — function called itself instead of resetting fields
+- Fix: Virtuoso Footer not re-rendering — use context prop pattern instead of cached closures
+- Fix: mobile chat not scrolling to bottom on initial load — add `initialTopMostItemIndex`
 - Fix: permission check prompts ("Do you want to make this edit?") now reliably detected and rendered as approval cards in chat
 - Fix: `isDangerousOperationPrompt()` classifier missed the most common edit/write/create/delete permission patterns
 - Fix: `isDangerousOperationPrompt()` options check failed to match standalone "No" (regex boundary bug)

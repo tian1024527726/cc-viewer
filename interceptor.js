@@ -18,6 +18,17 @@ import { assembleStreamMessage, cleanupTempFiles, findRecentLog, isAnthropicApiP
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// 流式请求的实时状态（供 server.js SSE 推送）
+export const streamingState = { active: false, requestId: null, startTime: null, model: null, bytesReceived: 0, chunksReceived: 0 };
+export function resetStreamingState() {
+  streamingState.active = false;
+  streamingState.requestId = null;
+  streamingState.startTime = null;
+  streamingState.model = null;
+  streamingState.bytesReceived = 0;
+  streamingState.chunksReceived = 0;
+}
+
 // 缓存从请求 headers 中提取的 API Key 或 Authorization header
 export let _cachedApiKey = null;
 export let _cachedAuthHeader = null;
@@ -430,7 +441,23 @@ export function setupInterceptor() {
       } catch { }
     }
 
-    const response = await _originalFetch.apply(this, arguments);
+    // 流式请求状态追踪（仅对 Claude API 流式请求）
+    if (requestEntry?.isStream) {
+      streamingState.active = true;
+      streamingState.requestId = requestId;
+      streamingState.startTime = Date.now();
+      streamingState.model = requestEntry.body?.model || '';
+      streamingState.bytesReceived = 0;
+      streamingState.chunksReceived = 0;
+    }
+
+    let response;
+    try {
+      response = await _originalFetch.apply(this, arguments);
+    } catch (err) {
+      if (requestEntry?.isStream) resetStreamingState();
+      throw err;
+    }
 
     if (requestEntry) {
       const duration = Date.now() - startTime;
@@ -498,6 +525,7 @@ export function setupInterceptor() {
                       // Release memory: clear large objects after disk write
                       streamedContent = '';
                       requestEntry.response = null;
+                      resetStreamingState();
                     } catch (err) {
                       requestEntry.response.body = streamedContent.slice(0, 1000);
                       delete requestEntry.inProgress;
@@ -506,15 +534,19 @@ export function setupInterceptor() {
                       _commitDeltaState(_deltaOriginalMessagesLength);
                       streamedContent = '';
                       requestEntry.response = null;
+                      resetStreamingState();
                     }
                     controller.close();
                     break;
                   }
+                  streamingState.bytesReceived += value.byteLength;
+                  streamingState.chunksReceived++;
                   const chunk = decoder.decode(value, { stream: true });
                   streamedContent += chunk;
                   controller.enqueue(value);
                 }
               } catch (err) {
+                resetStreamingState();
                 controller.error(err);
               }
             }
@@ -537,6 +569,7 @@ export function setupInterceptor() {
           delete requestEntry.requestId;
           appendFileSync(LOG_FILE, JSON.stringify(requestEntry) + '\n---\n');
           _commitDeltaState(_deltaOriginalMessagesLength);
+          resetStreamingState();
         }
       } else {
         // 对于非流式响应，可以安全读取body

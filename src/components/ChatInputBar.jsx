@@ -4,7 +4,7 @@ import { isMobile } from '../env';
 import { t } from '../i18n';
 import styles from './ChatInputBar.module.css';
 
-function ChatInputBar({ inputRef, inputEmpty, inputSuggestion, terminalVisible, onKeyDown, onChange, onSend, onSuggestionClick, onUploadPath }) {
+function ChatInputBar({ inputRef, inputEmpty, inputSuggestion, terminalVisible, onKeyDown, onChange, onSend, onSuggestionClick, onUploadPath, presetItems, onPresetSend, isStreaming, streamingFading }) {
   const [plusOpen, setPlusOpen] = useState(false);
 
   if (terminalVisible) {
@@ -19,7 +19,37 @@ function ChatInputBar({ inputRef, inputEmpty, inputSuggestion, terminalVisible, 
 
   return (
     <div className={styles.chatInputBar}>
-      <div className={styles.chatInputWrapper}>
+      <div className={`${styles.chatInputWrapper}${isStreaming ? ` ${styles.streaming}` : ''}${streamingFading ? ` ${styles.streamingFading}` : ''}`}>
+        {(isStreaming || streamingFading) && (
+          <svg className={`${styles.streamingSvg}${streamingFading ? ` ${styles.streamingSvgFading}` : ''}`}>
+            <defs>
+              <filter id="ccv-streamGlow">
+                <feGaussianBlur stdDeviation="2" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+            {/* 5层渐变拖尾：头亮尾淡，所有层头部对齐 */}
+            {[
+              { da: '20 30', op: 0.08, off: 0 },
+              { da: '16 34', op: 0.15, off: -4 },
+              { da: '11 39', op: 0.3,  off: -9 },
+              { da: '6 44',  op: 0.6,  off: -14 },
+              { da: '3 47',  op: 1,    off: -17 },
+            ].map((l, i, arr) => (
+              <rect key={i} x="0" y="0" width="100%" height="100%" rx="16" ry="16"
+                pathLength="100" fill="none" strokeWidth="1.5"
+                stroke="#60a5fa" strokeOpacity={l.op}
+                strokeLinecap="round" strokeDasharray={l.da}
+                filter={i === arr.length - 1 ? 'url(#ccv-streamGlow)' : undefined}>
+                <animate attributeName="stroke-dashoffset"
+                  from={l.off} to={l.off - 100} dur="2.5s" repeatCount="indefinite" />
+              </rect>
+            ))}
+          </svg>
+        )}
         <div className={styles.chatTextareaWrap}>
           <textarea
             ref={inputRef}
@@ -45,6 +75,25 @@ function ChatInputBar({ inputRef, inputEmpty, inputSuggestion, terminalVisible, 
               <>
               <div className={styles.plusOverlay} onClick={() => setPlusOpen(false)} />
               <div className={styles.plusMenu}>
+                {presetItems && presetItems.length > 0 && presetItems.map(item => {
+                  const isBuiltinRaw = item.builtinId && !item.modified;
+                  const name = isBuiltinRaw ? t(item.teamName) : item.teamName;
+                  const desc = isBuiltinRaw ? t(item.description) : item.description;
+                  return (
+                    <button key={item.id} className={styles.plusMenuItem} onClick={() => {
+                      setPlusOpen(false);
+                      onPresetSend?.(desc);
+                    }} title={desc}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                      </svg>
+                      <span className={styles.presetLabel}>{name || desc}</span>
+                    </button>
+                  );
+                })}
                 <button className={styles.plusMenuItem} onClick={() => {
                   setPlusOpen(false);
                   const input = document.createElement('input');

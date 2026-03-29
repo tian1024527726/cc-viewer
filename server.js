@@ -34,7 +34,7 @@ function execWithStdin(cmd, args, input, options) {
     child.stdin.end();
   });
 }
-import { LOG_FILE, _initPromise, _resumeState, resolveResumeChoice, _projectName, _logDir, _cachedApiKey, _cachedAuthHeader, _cachedHaikuModel, initForWorkspace, resetWorkspace } from './interceptor.js';
+import { LOG_FILE, _initPromise, _resumeState, resolveResumeChoice, _projectName, _logDir, _cachedApiKey, _cachedAuthHeader, _cachedHaikuModel, initForWorkspace, resetWorkspace, streamingState, resetStreamingState } from './interceptor.js';
 import { LOG_DIR } from './findcc.js';
 import { t, detectLanguage } from './i18n.js';
 import { checkAndUpdate } from './lib/updater.js';
@@ -43,7 +43,7 @@ import { uploadPlugins, installPluginFromUrl } from './lib/plugin-manager.js';
 import { getUserProfile } from './lib/user-profile.js';
 import { getGitDiffs } from './lib/git-diff.js';
 import { CONTEXT_WINDOW_FILE, readModelContextSize, buildContextWindowEvent, getContextSizeForModel } from './lib/context-watcher.js';
-import { watchLogFile, startWatching, getWatchedFiles } from './lib/log-watcher.js';
+import { watchLogFile, startWatching, getWatchedFiles, sendEventToClients } from './lib/log-watcher.js';
 import { isMainAgentEntry, extractCachedContent } from './lib/kv-cache-analyzer.js';
 import { listLocalLogs, deleteLogFiles, mergeLogFiles } from './lib/log-management.js';
 import { countLogEntries, streamRawEntriesAsync } from './lib/log-stream.js';
@@ -479,6 +479,7 @@ async function handleRequest(req, res) {
 
         // 启动 stats worker（如果尚未启动）
         if (!statsWorker) startStatsWorker();
+        startStreamingStatusTimer();
 
         // 启动 PTY
         const proxyPort = process.env.CCV_PROXY_PORT;
@@ -1807,6 +1808,7 @@ export async function startViewer() {
             readModelContextSize(); // Cache model→size mapping at startup
             startWatching(_logWatcherOpts(LOG_FILE));
             startStatsWorker();
+            startStreamingStatusTimer();
           }
           // CLI 模式下启动 WebSocket 服务
           if (isCliMode) {
@@ -2015,6 +2017,24 @@ export function getProtocol() {
   return serverProtocol;
 }
 
+// 流式状态 SSE 推送定时器：检测 streamingState 变化并广播给所有客户端
+let _streamingStatusTimer = null;
+let _lastStreamingActive = false;
+function startStreamingStatusTimer() {
+  if (_streamingStatusTimer) return;
+  _streamingStatusTimer = setInterval(() => {
+    const changed = streamingState.active !== _lastStreamingActive;
+    if (changed || streamingState.active) {
+      const data = streamingState.active
+        ? { ...streamingState, elapsed: Date.now() - streamingState.startTime }
+        : { active: false };
+      if (clients.size > 0 && sendEventToClients) sendEventToClients(clients, 'streaming_status', data);
+      _lastStreamingActive = streamingState.active;
+    }
+  }, 500);
+  _streamingStatusTimer.unref();
+}
+
 let _stoppingPromise = null;
 export function stopViewer() {
   if (_stoppingPromise) return _stoppingPromise;
@@ -2053,6 +2073,11 @@ async function _doStop() {
     statsWorker.terminate();
     statsWorker = null;
   }
+  if (_streamingStatusTimer) {
+    clearInterval(_streamingStatusTimer);
+    _streamingStatusTimer = null;
+  }
+  resetStreamingState();
 }
 
 // Auto-start the viewer after log file init completes

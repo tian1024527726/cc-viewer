@@ -65,6 +65,7 @@ class AppBase extends React.Component {
       updateInfo: null,
       pendingUploadPaths: [],
       contextWindow: null,
+      isStreaming: false,
     };
     this.eventSource = null;
     this._autoSelectTimer = null;
@@ -284,6 +285,7 @@ class AppBase extends React.Component {
     if (this.eventSource) { this.eventSource.close(); this.eventSource = null; }
     if (this._flushRafId) { cancelAnimationFrame(this._flushRafId); this._flushRafId = null; }
     this._pendingEntries = [];
+    this.setState({ isStreaming: false });
     this._sseSlimmer = null;
     if (this._sseReconnectTimer) clearTimeout(this._sseReconnectTimer);
     this._sseReconnectTimer = setTimeout(() => { this.initSSE(); }, 2000);
@@ -521,6 +523,12 @@ class AppBase extends React.Component {
         }
       });
       this.eventSource.addEventListener('ping', () => { this._resetSSETimeout(); });
+      this.eventSource.addEventListener('streaming_status', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          this.setState({ isStreaming: !!data.active });
+        } catch (err) { console.error('Failed to parse streaming_status:', err); }
+      });
       this.eventSource.onerror = () => console.error('SSE连接错误');
     } catch (error) {
       console.error('EventSource初始化失败:', error);
