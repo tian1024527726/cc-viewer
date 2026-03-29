@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.6.61 (2026-03-29)
+
+- Feature: image lightbox — click chat images to preview in overlay instead of opening new tab
+- Supports PC (wheel zoom, drag pan, double-click toggle) and mobile (pinch-to-zoom, single-finger pan, tap-to-close)
+- Auto-fit large images to viewport, fade-in/out animation, loading spinner, error state
+- Covers user message images (ChatImage) and markdown-rendered images (.chat-md img) via event delegation
+- iOS safe area inset support, a11y dialog role, scrollbar-gutter stability
+- i18n: added `ui.imageLightbox.close` for 18 languages
+
 ## 1.6.60 (2026-03-29)
 
 - Feature: mobile incremental SSE loading — server supports `since` filter, client Map-based dedup merge with empty delta short-circuit

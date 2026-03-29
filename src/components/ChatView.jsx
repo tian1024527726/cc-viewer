@@ -5,6 +5,7 @@ import TerminalPanel from './TerminalPanel';
 import FileExplorer from './FileExplorer';
 import FileContentView from './FileContentView';
 import ImageViewer from './ImageViewer';
+import ImageLightbox from './ImageLightbox';
 import GitChanges from './GitChanges';
 import GitDiffView from './GitDiffView';
 import { getModelInfo } from '../utils/helpers';
@@ -100,6 +101,7 @@ class ChatView extends React.Component {
       roleFilterOpen: false,
       roleFilterHidden: new Set(),
       teamModalSession: null,
+      mdLightboxSrc: null,
     };
     this._processedToolIds = new Set();
     this._projectDirCache = null; // 缓存项目目录绝对路径
@@ -1635,6 +1637,14 @@ class ChatView extends React.Component {
 
   // 点击工具调用中的文件路径，打开文件查看器
   // 绝对路径需要转为项目相对路径，以便与 FileExplorer 的 TreeNode 匹配
+  handleMdImageClick = (e) => {
+    const img = e.target.closest('.chat-md img');
+    if (img && img.src) {
+      e.preventDefault();
+      this.setState({ mdLightboxSrc: img.src });
+    }
+  };
+
   handleOpenToolFilePath = async (filePath) => {
     if (!filePath) return;
     let resolved = filePath;
@@ -1818,8 +1828,11 @@ class ChatView extends React.Component {
         {stickyBtn}
       </div>
     ) : (
-      <div className={styles.messageListWrap}>
+      <div className={styles.messageListWrap} onClick={this.handleMdImageClick}>
         {roleFilterBar}
+        {this.state.mdLightboxSrc && (
+          <ImageLightbox src={this.state.mdLightboxSrc} alt="" onClose={() => this.setState({ mdLightboxSrc: null })} />
+        )}
         {isMobile ? (
           this._virtuosoHeader = loadMoreBtn,
           this._virtuosoFooter = <>{filteredLastResponseItems}{pendingBubble}{promptBubbles}</>,

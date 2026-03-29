@@ -11,6 +11,7 @@ import { isPlanApprovalPrompt } from '../utils/promptClassifier';
 import DiffView from './DiffView';
 import ToolResultView from './ToolResultView';
 
+import ImageLightbox from './ImageLightbox';
 import defaultAvatarUrl from '../img/default-avatar.svg';
 import defaultModelAvatarUrl from '../img/default-model-avatar.svg';
 import styles from './ChatMessage.module.css';
@@ -19,19 +20,25 @@ const { Text } = Typography;
 
 function ChatImage({ src, alt, fallbackText }) {
   const [failed, setFailed] = React.useState(false);
+  const [lightboxOpen, setLightboxOpen] = React.useState(false);
   if (failed) {
     return <span className={styles.chatImageFallback}>{fallbackText}</span>;
   }
   return (
-    <img
-      src={src}
-      alt={alt}
-      className={styles.chatImageImg}
-      loading="lazy"
-      decoding="async"
-      onClick={() => window.open(src, '_blank')}
-      onError={() => setFailed(true)}
-    />
+    <>
+      <img
+        src={src}
+        alt={alt}
+        className={styles.chatImageImg}
+        loading="lazy"
+        decoding="async"
+        onClick={() => setLightboxOpen(true)}
+        onError={() => setFailed(true)}
+      />
+      {lightboxOpen && (
+        <ImageLightbox src={src} alt={alt} onClose={() => setLightboxOpen(false)} />
+      )}
+    </>
   );
 }
 
