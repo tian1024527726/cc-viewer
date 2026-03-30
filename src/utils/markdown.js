@@ -1,6 +1,9 @@
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { escapeHtml } from './helpers';
+import { setupMermaidAutoRender } from '../hooks/useMermaidRender';
+
+setupMermaidAutoRender();
 
 export function renderMarkdown(text) {
   if (!text) return '';

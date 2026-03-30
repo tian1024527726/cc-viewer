@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.71 (2026-03-30)
+
+- Feature: Mermaid diagram rendering in markdown — `\`\`\`mermaid` code blocks auto-rendered as SVG charts
+- Uses global MutationObserver with lazy-loaded mermaid.js (~460KB code-split chunk, loaded on first encounter)
+- SVG output sanitized via DOMPurify for defense-in-depth security
+- Dark theme with consistent styling, graceful fallback to raw code on render failure
+
 ## 1.6.70 (2026-03-30)
 
 - Fix: Opus model defaults to 1M context — removed obsolete "Opus 4.6" (200K) and "Sonnet 4.6 (1M)" calibration options

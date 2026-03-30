@@ -79,6 +79,22 @@ body {
 .chat-md strong { color: #f1f5f9; }
 .chat-md em { color: #cbd5e1; }
 
+/* Mermaid diagram rendered from ```mermaid code blocks */
+.mermaid-diagram {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0;
+  padding: 16px;
+  background: #0a0e14;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+.mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
 /* chat-boxer: 白底黑字气泡容器 */
 .chat-boxer {
   background: linear-gradient(to top, #222222, #303030);
