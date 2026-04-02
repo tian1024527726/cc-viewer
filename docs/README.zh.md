@@ -197,6 +197,8 @@ Header 区域的「数据统计」悬浮面板：
 
 ---
 
+<img width="1500" height="746" alt="image" src="https://github.com/user-attachments/assets/b1f60c7c-1438-4ecc-8c64-193d21ee3445" />
+
 更多功能等你发现...比如：本系统支持Agent Team，以及内置了Code Reviewer。马上就要适配Codex 的Code Reviewer引入（作者很推崇使用Codex 给Claude Code Reivew 代码）
 
 
