@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.87 (2026-04-02)
+
+- Fix: tsToIndex cache invalidation — reset on filteredRequests change to prevent highlight offset
+- Fix: scroll fade delay — defer scroll listener 500ms to avoid smooth scroll animation triggering premature fading
+- Fix: highlight precise positioning — use visibleIdx instead of timestamp findIndex for same-timestamp messages
+- Fix: ConceptHelp modal click propagation — use onMouseDown instead of onClick to prevent overriding mask close
+- Style: userPromptNavList background (#111) and border-radius
+
 ## 1.6.86 (2026-04-02)
 
 - Style: close button ghost style — remove border/background, show semi-transparent bg on hover (FileContentView, GitDiffView)

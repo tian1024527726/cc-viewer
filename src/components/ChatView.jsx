@@ -77,6 +77,7 @@ class ChatView extends React.Component {
       lastResponseItems: null,
       highlightTs: null,
       highlightFading: false,
+      highlightVisibleIdx: -1,
       terminalWidth: initialTerminalWidth || 624, // 默认 80cols * 7.8px
       needsInitialSnap: initialTerminalWidth === null, // 标记是否需要初始化吸附
       inputEmpty: true,
@@ -302,7 +303,9 @@ class ChatView extends React.Component {
       this._updateSuggestion();
       this._checkToolFileChanges();
     } else if (prevProps.requests !== this.props.requests) {
-      // SubAgent / Teammate 请求到达但 mainAgentSessions 未变
+      // requests（filteredRequests）变化但 mainAgentSessions 未变 → 重建 tsToIndex 避免索引偏移
+      this._reqScanCache.tsToIndex = {};
+      this._reqScanCache.processedCount = 0;
       this._reqScanCache.subAgentEntries = [];
       this._reqScanCache.subAgentProcessedCount = 0;
       this.startRender();
@@ -528,25 +531,31 @@ class ChatView extends React.Component {
 
   _bindScrollFade() {
     this._unbindScrollFade();
-    const container = this._getScrollContainer();
-    if (!container) return;
-    this._scrollFadeIgnoreFirst = true;
-    this._scrollFadeBoundEl = container;
-    this._onScrollFade = () => {
-      if (this._scrollFadeIgnoreFirst) {
-        this._scrollFadeIgnoreFirst = false;
-        return;
-      }
-      this.setState({ highlightFading: true });
-      this._fadeClearTimer = setTimeout(() => {
-        this.setState({ highlightTs: null, highlightFading: false });
-      }, 2000);
-      this._unbindScrollFade();
-    };
-    container.addEventListener('scroll', this._onScrollFade, { passive: true });
+    // 延迟绑定：等待 smooth scroll 动画完成后再监听，避免动画帧触发提前 fading
+    this._scrollFadeDelayTimer = setTimeout(() => {
+      const container = this._getScrollContainer();
+      if (!container) return;
+      this._scrollFadeBoundEl = container;
+      this._onScrollFade = () => {
+        this.setState({ highlightFading: true });
+        this._fadeClearTimer = setTimeout(() => {
+          this.setState({ highlightTs: null, highlightFading: false, highlightVisibleIdx: -1 });
+        }, 2000);
+        this._unbindScrollFade();
+      };
+      container.addEventListener('scroll', this._onScrollFade, { passive: true });
+    }, 500);
   }
 
   _unbindScrollFade() {
+    if (this._scrollFadeDelayTimer) {
+      clearTimeout(this._scrollFadeDelayTimer);
+      this._scrollFadeDelayTimer = null;
+    }
+    if (this._fadeClearTimer) {
+      clearTimeout(this._fadeClearTimer);
+      this._fadeClearTimer = null;
+    }
     if (this._onScrollFade && this._scrollFadeBoundEl) {
       this._scrollFadeBoundEl.removeEventListener('scroll', this._onScrollFade);
       this._scrollFadeBoundEl = null;
@@ -1948,7 +1957,7 @@ class ChatView extends React.Component {
     if (visibleIdx == null || visibleIdx < 0) return;
     // 触发高亮（有 timestamp 时显示蓝色虚线动画）
     if (timestamp) {
-      this.setState({ highlightTs: timestamp, highlightFading: false }, () => {
+      this.setState({ highlightTs: timestamp, highlightFading: false, highlightVisibleIdx: visibleIdx }, () => {
         this._doScrollToVisibleIdx(visibleIdx);
         this._bindScrollFade();
       });
@@ -2052,14 +2061,14 @@ class ChatView extends React.Component {
     const filteredLastResponseItems = lastResponseItems && _isFiltering && !this.state.roleFilterSelected.has('assistant') ? null : lastResponseItems;
 
     const targetIdx = this._scrollTargetIdx;
-    const { highlightTs, highlightFading } = this.state;
+    const { highlightTs, highlightFading, highlightVisibleIdx } = this.state;
     const visible = filteredItems.slice(0, _isFiltering ? filteredItems.length : visibleCount);
     // 缓存 visible，供 _buildUserPromptNav / _scrollToUserPrompt 使用
     this._currentVisible = visible;
-    // H2 fix: highlightIdx 基于 visible 索引（而非 allItems 索引），role filter 时不会偏移
-    const highlightIdx = highlightTs != null
-      ? visible.findIndex(item => item.props?.timestamp === highlightTs)
-      : -1;
+    // 优先使用精确的 visibleIdx（同一请求的多条消息共享 timestamp，findIndex 会匹配到第一条）
+    const highlightIdx = highlightVisibleIdx >= 0 && highlightVisibleIdx < visible.length
+      ? highlightVisibleIdx
+      : (highlightTs != null ? visible.findIndex(item => item.props?.timestamp === highlightTs) : -1);
 
     const { pendingInput, stickyBottom, ptyPromptHistory } = this.state;
 

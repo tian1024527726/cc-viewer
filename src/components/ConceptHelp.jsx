@@ -76,6 +76,7 @@ export default function ConceptHelp({ doc, zIndex }) {
           centered={isMobile}
           styles={modalStyles}
           {...(zIndex ? { zIndex } : {})}
+          wrapProps={{ onMouseDown: (e) => e.stopPropagation() }}
         >
           {loading ? (
             <div className={styles.spinWrap}><Spin /></div>

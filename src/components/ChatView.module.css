@@ -230,6 +230,8 @@
   overflow-y: auto;
   min-width: 200px;
   max-width: 360px;
+  background: #111;
+  border-radius: 4px;
 }
 
 .userPromptNavItem {
