@@ -2597,6 +2597,46 @@ const i18nData = {
     "tr": "\"Düşünce süreci\"ni genişlet",
     "uk": "Розгорнути \"Процес мислення\""
   },
+  "ui.showFullToolContent": {
+    "zh": "完整展示所有内容",
+    "en": "Show full tool content",
+    "zh-TW": "完整展示所有內容",
+    "ko": "모든 내용 전체 표시",
+    "ja": "すべての内容を完全に表示",
+    "de": "Alle Inhalte vollständig anzeigen",
+    "es": "Mostrar todo el contenido completo",
+    "fr": "Afficher tout le contenu en entier",
+    "it": "Mostra tutto il contenuto completo",
+    "da": "Vis alt indhold fuldt ud",
+    "pl": "Pokaż pełną treść wszystkiego",
+    "ru": "Показать всё содержимое полностью",
+    "ar": "عرض كل المحتوى بالكامل",
+    "no": "Vis alt innhold fullstendig",
+    "pt-BR": "Exibir todo o conteúdo completo",
+    "th": "แสดงเนื้อหาทั้งหมดแบบเต็ม",
+    "tr": "Tüm içeriği tam olarak göster",
+    "uk": "Показати весь вміст повністю"
+  },
+  "ui.toolsUsed": {
+    "zh": "调用工具: ",
+    "en": "Tools used: ",
+    "zh-TW": "調用工具: ",
+    "ko": "사용한 도구: ",
+    "ja": "使用ツール: ",
+    "de": "Verwendete Tools: ",
+    "es": "Herramientas usadas: ",
+    "fr": "Outils utilisés : ",
+    "it": "Strumenti usati: ",
+    "da": "Brugte værktøjer: ",
+    "pl": "Użyte narzędzia: ",
+    "ru": "Инструменты: ",
+    "ar": "الأدوات المستخدمة: ",
+    "no": "Brukte verktøy: ",
+    "pt-BR": "Ferramentas usadas: ",
+    "th": "เครื่องมือที่ใช้: ",
+    "tr": "Kullanılan araçlar: ",
+    "uk": "Використані інструменти: "
+  },
   "ui.diffSummary": {
     "zh": "+{added} -{removed}",
     "en": "+{added} -{removed}",
@@ -2636,6 +2676,14 @@ const i18nData = {
     "th": "ขยาย Body Diff JSON เป็นค่าเริ่มต้น",
     "tr": "Body Diff JSON'u varsayılan olarak genişlet",
     "uk": "Розгортати Body Diff JSON за замовчуванням"
+  },
+  "ui.logDirTitle": {
+    "zh": "日志目录设置", "en": "Log directory", "zh-TW": "日誌目錄設定",
+    "ko": "로그 디렉토리 설정", "ja": "ログディレクトリ設定", "de": "Protokollverzeichnis",
+    "es": "Directorio de registros", "fr": "Répertoire de journaux", "it": "Directory dei log",
+    "da": "Logmappe", "pl": "Katalog logów", "ru": "Каталог журналов",
+    "ar": "دليل السجلات", "no": "Loggkatalog", "pt-BR": "Diretório de logs",
+    "th": "ไดเรกทอรีบันทึก", "tr": "Günlük dizini", "uk": "Каталог журналів"
   },
   "ui.globalSettings": {
     "zh": "全局设置",
@@ -3837,6 +3885,14 @@ const i18nData = {
     "tr": "Claude'a mesaj yazın...",
     "uk": "Введіть повідомлення для Claude..."
   },
+  "ui.chatInput.removeImage": {
+    "zh": "移除图片", "en": "Remove image", "zh-TW": "移除圖片",
+    "ko": "이미지 제거", "ja": "画像を削除", "de": "Bild entfernen",
+    "es": "Eliminar imagen", "fr": "Supprimer l'image", "it": "Rimuovi immagine",
+    "da": "Fjern billede", "pl": "Usuń obraz", "ru": "Удалить изображение",
+    "ar": "إزالة الصورة", "no": "Fjern bilde", "pt-BR": "Remover imagem",
+    "th": "ลบรูปภาพ", "tr": "Resmi kaldır", "uk": "Видалити зображення"
+  },
   "ui.chatInput.more": {
     "zh": "更多",
     "en": "More",
@@ -4168,6 +4224,38 @@ const i18nData = {
     "da": "Send", "pl": "Wyślij", "ru": "Отправить",
     "ar": "إرسال", "no": "Send", "pt-BR": "Enviar",
     "th": "ส่ง", "tr": "Gönder", "uk": "Надіслати"
+  },
+  "ui.permission.approvalRequired": {
+    "zh": "待审批", "en": "Approval Required", "zh-TW": "待審批",
+    "ko": "승인 필요", "ja": "承認が必要", "de": "Genehmigung erforderlich",
+    "es": "Aprobación requerida", "fr": "Approbation requise", "it": "Approvazione richiesta",
+    "da": "Godkendelse påkrævet", "pl": "Wymagana akceptacja", "ru": "Требуется одобрение",
+    "ar": "موافقة مطلوبة", "no": "Godkjenning påkrevd", "pt-BR": "Aprovação necessária",
+    "th": "ต้องการการอนุมัติ", "tr": "Onay gerekli", "uk": "Потрібне схвалення"
+  },
+  "ui.permission.allow": {
+    "zh": "允许", "en": "Allow", "zh-TW": "允許",
+    "ko": "허용", "ja": "許可", "de": "Erlauben",
+    "es": "Permitir", "fr": "Autoriser", "it": "Consenti",
+    "da": "Tillad", "pl": "Zezwól", "ru": "Разрешить",
+    "ar": "سماح", "no": "Tillat", "pt-BR": "Permitir",
+    "th": "อนุญาต", "tr": "İzin ver", "uk": "Дозволити"
+  },
+  "ui.permission.allowSession": {
+    "zh": "本次会话允许", "en": "Allow for session", "zh-TW": "本次會話允許",
+    "ko": "세션 동안 허용", "ja": "セッション中は許可", "de": "Für Sitzung erlauben",
+    "es": "Permitir para sesión", "fr": "Autoriser pour la session", "it": "Consenti per sessione",
+    "da": "Tillad for session", "pl": "Zezwól na sesję", "ru": "Разрешить на сессию",
+    "ar": "سماح للجلسة", "no": "Tillat for økt", "pt-BR": "Permitir para sessão",
+    "th": "อนุญาตสำหรับเซสชัน", "tr": "Oturum için izin ver", "uk": "Дозволити для сесії"
+  },
+  "ui.permission.deny": {
+    "zh": "拒绝", "en": "Deny", "zh-TW": "拒絕",
+    "ko": "거부", "ja": "拒否", "de": "Ablehnen",
+    "es": "Denegar", "fr": "Refuser", "it": "Nega",
+    "da": "Afvis", "pl": "Odmów", "ru": "Отклонить",
+    "ar": "رفض", "no": "Avslå", "pt-BR": "Negar",
+    "th": "ปฏิเสธ", "tr": "Reddet", "uk": "Відхилити"
   },
   "ui.dangerApproval": {
     "zh": "操作待审批", "en": "Approval Required", "zh-TW": "操作待審批",

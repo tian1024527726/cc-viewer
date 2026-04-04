@@ -35,21 +35,22 @@ function execWithStdin(cmd, args, input, options) {
   });
 }
 import { LOG_FILE, _initPromise, _resumeState, resolveResumeChoice, _projectName, _logDir, _cachedApiKey, _cachedAuthHeader, _cachedHaikuModel, initForWorkspace, resetWorkspace, streamingState, resetStreamingState, _loadProxyProfile, PROFILE_PATH, _defaultConfig } from './interceptor.js';
-import { LOG_DIR } from './findcc.js';
+import { LOG_DIR, setLogDir } from './findcc.js';
 import { t, detectLanguage } from './i18n.js';
 import { checkAndUpdate } from './lib/updater.js';
-import { loadPlugins, runWaterfallHook, runParallelHook, getPluginsInfo, PLUGINS_DIR } from './lib/plugin-loader.js';
+import { loadPlugins, runWaterfallHook, runParallelHook, getPluginsInfo, getPluginsDir } from './lib/plugin-loader.js';
 import { uploadPlugins, installPluginFromUrl } from './lib/plugin-manager.js';
 import { getUserProfile } from './lib/user-profile.js';
 import { getGitDiffs } from './lib/git-diff.js';
 import { CONTEXT_WINDOW_FILE, readModelContextSize, buildContextWindowEvent, getContextSizeForModel } from './lib/context-watcher.js';
-import { watchLogFile, startWatching, getWatchedFiles, sendEventToClients } from './lib/log-watcher.js';
+import { watchLogFile, startWatching, getWatchedFiles, sendEventToClients, sendToClients } from './lib/log-watcher.js';
 import { isMainAgentEntry, extractCachedContent } from './lib/kv-cache-analyzer.js';
 import { listLocalLogs, deleteLogFiles, mergeLogFiles } from './lib/log-management.js';
 import { countLogEntries, streamRawEntriesAsync, readPagedEntries } from './lib/log-stream.js';
 
 
-const PREFS_FILE = join(LOG_DIR, 'preferences.json');
+// 动态获取 getPrefsFile()（LOG_DIR 可能在运行时被 setLogDir 修改）
+function getPrefsFile() { return join(LOG_DIR, 'preferences.json'); }
 
 // 启动时一次性读取 ~/.claude/settings.json（不 watch）
 let claudeSettings = {};
@@ -60,6 +61,7 @@ try {
   }
 } catch { }
 const isCliMode = process.env.CCV_CLI_MODE === '1';
+const isSdkMode = process.env.CCV_SDK_MODE === '1';
 const isWorkspaceMode = process.env.CCV_WORKSPACE_MODE === '1';
 const _defaultProxyProfiles = { active: 'max', profiles: [{ id: 'max', name: 'Default' }] };
 const _maskApiKey = (k) => k && typeof k === 'string' && k.length > 4 ? '****' + k.slice(-4) : k ? '****' : '';
@@ -100,6 +102,9 @@ let _workspaceLaunched = false; // 工作区是否已经启动了会话
 // Ask hook bridge state (for PreToolUse AskUserQuestion hook)
 // At most one pending request at a time (Claude Code is single-threaded)
 let pendingAskHook = null; // { questions, res, timer, createdAt }
+
+// Permission hook bridge state (for PreToolUse permission approval)
+let pendingPermHook = null; // { toolName, input, res, timer, createdAt }
 
 // Editor session state (for $EDITOR intercept)
 const editorSessions = new Map(); // sessionId → { filePath, done, createdAt }
@@ -327,7 +332,8 @@ async function handleRequest(req, res) {
 
   if (url === '/api/preferences' && method === 'GET') {
     let prefs = {};
-    try { if (existsSync(PREFS_FILE)) prefs = JSON.parse(readFileSync(PREFS_FILE, 'utf-8')); } catch { }
+    try { if (existsSync(getPrefsFile())) prefs = JSON.parse(readFileSync(getPrefsFile(), 'utf-8')); } catch { }
+    prefs.logDir = LOG_DIR; // 始终返回当前运行时的日志目录
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(prefs));
     return;
@@ -339,10 +345,19 @@ async function handleRequest(req, res) {
     req.on('end', () => {
       try {
         const incoming = JSON.parse(body);
+        // 如果修改了日志目录，先切换再保存到新位置（新目录下生成 preferences.json）
+        if (incoming.logDir && typeof incoming.logDir === 'string') {
+          setLogDir(incoming.logDir);
+        }
         let prefs = {};
-        try { if (existsSync(PREFS_FILE)) prefs = JSON.parse(readFileSync(PREFS_FILE, 'utf-8')); } catch { }
+        try { if (existsSync(getPrefsFile())) prefs = JSON.parse(readFileSync(getPrefsFile(), 'utf-8')); } catch { }
         Object.assign(prefs, incoming);
-        writeFileSync(PREFS_FILE, JSON.stringify(prefs, null, 2));
+        // 确保目录存在
+        const prefsFile = getPrefsFile();
+        const prefsDir = dirname(prefsFile);
+        if (!existsSync(prefsDir)) mkdirSync(prefsDir, { recursive: true });
+        writeFileSync(prefsFile, JSON.stringify(prefs, null, 2));
+        prefs.logDir = LOG_DIR;
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(prefs));
       } catch {
@@ -1200,6 +1215,61 @@ async function handleRequest(req, res) {
     return;
   }
 
+  // 用系统默认应用打开文件
+  if (url === '/api/open-file' && method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; if (body.length > MAX_POST_BODY) req.destroy(); });
+    req.on('end', () => {
+      let parsed;
+      try { parsed = JSON.parse(body); } catch {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid request body' }));
+        return;
+      }
+      try {
+        const { path: filePath } = parsed;
+        if (!filePath) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing path' }));
+          return;
+        }
+        if (filePath.startsWith('/') || filePath.includes('..')) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid path' }));
+          return;
+        }
+        const cwd = process.env.CCV_PROJECT_DIR || process.cwd();
+        const fullPath = join(cwd, filePath);
+        if (!existsSync(fullPath)) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'File not found' }));
+          return;
+        }
+        const realFull = realpathSync(fullPath);
+        const realCwd = realpathSync(cwd);
+        if (!realFull.startsWith(realCwd + '/')) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Path traversal not allowed' }));
+          return;
+        }
+        const plat = process.platform;
+        if (plat === 'darwin') {
+          execFile('open', [fullPath], () => {});
+        } else if (plat === 'win32') {
+          execFile('cmd.exe', ['/c', 'start', '', fullPath], () => {});
+        } else {
+          execFile('xdg-open', [fullPath], () => {});
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
   // 解析相对路径为绝对路径（不触发任何副作用）
   if (url === '/api/resolve-path' && method === 'POST') {
     let body = '';
@@ -1605,6 +1675,90 @@ async function handleRequest(req, res) {
     return;
   }
 
+  // Permission hook bridge: receive tool permission request from perm-bridge.js, long-poll for user decision
+  if (url === '/api/perm-hook' && method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk;
+      if (body.length > 1000000) {
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Request body too large' }));
+        return;
+      }
+    });
+    req.on('end', () => {
+      try {
+        const { toolName, input } = JSON.parse(body);
+        if (!toolName) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing toolName' }));
+          return;
+        }
+
+        // Cancel any previous pending permission request
+        if (pendingPermHook) {
+          try {
+            if (!pendingPermHook.res.headersSent) {
+              pendingPermHook.res.writeHead(409, { 'Content-Type': 'application/json' });
+              pendingPermHook.res.end(JSON.stringify({ error: 'Superseded' }));
+            }
+          } catch {}
+          clearTimeout(pendingPermHook.timer);
+        }
+
+        const HOOK_TIMEOUT = 5 * 60 * 1000;
+        const id = `perm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const timer = setTimeout(() => {
+          if (pendingPermHook && pendingPermHook.id === id) {
+            pendingPermHook = null;
+            try {
+              if (!res.headersSent) {
+                res.writeHead(408, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Timeout' }));
+              }
+            } catch {}
+            if (terminalWss) {
+              const tmsg = JSON.stringify({ type: 'perm-hook-timeout' });
+              terminalWss.clients.forEach((c) => {
+                if (c.readyState === 1) try { c.send(tmsg); } catch {}
+              });
+            }
+          }
+        }, HOOK_TIMEOUT);
+
+        pendingPermHook = { id, toolName, input, res, timer, createdAt: Date.now() };
+
+        // Broadcast to all terminal WS clients
+        if (terminalWss) {
+          const pmsg = JSON.stringify({ type: 'perm-hook-pending', id, toolName, input });
+          terminalWss.clients.forEach((client) => {
+            if (client.readyState === 1) {
+              try { client.send(pmsg); } catch {}
+            }
+          });
+        }
+
+        // Handle perm-bridge.js disconnection
+        res.on('close', () => {
+          if (pendingPermHook && pendingPermHook.id === id) {
+            clearTimeout(pendingPermHook.timer);
+            pendingPermHook = null;
+            if (terminalWss) {
+              const tmsg = JSON.stringify({ type: 'perm-hook-timeout' });
+              terminalWss.clients.forEach((c) => {
+                if (c.readyState === 1) try { c.send(tmsg); } catch {}
+              });
+            }
+          }
+        });
+      } catch {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid request body' }));
+      }
+    });
+    return;
+  }
+
   // 读取文件内容 API
   if (url === '/api/file-content' && method === 'GET') {
     const reqPath = parsedUrl.searchParams.get('path');
@@ -1678,13 +1832,16 @@ async function handleRequest(req, res) {
       const extMime = {
         '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
         '.gif': 'image/gif', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
-        '.webp': 'image/webp',
+        '.webp': 'image/webp', '.html': 'text/html', '.htm': 'text/html',
       };
       const ext = (targetFile.match(/\.[^.]+$/) || [''])[0].toLowerCase();
       const mime = extMime[ext] || 'application/octet-stream';
       const data = method === 'HEAD' ? null : readFileSync(targetFile);
       const size = method === 'HEAD' ? stat.size : data.length;
-      res.writeHead(200, { 'Content-Type': mime, 'Content-Length': size });
+      const headers = { 'Content-Type': mime, 'Content-Length': size };
+      // 防止用户项目中的恶意 HTML 在同源下执行脚本（XSS 防护）
+      if (mime === 'text/html') headers['Content-Security-Policy'] = 'sandbox';
+      res.writeHead(200, headers);
       res.end(data);
     } catch (err) {
       const status = ERROR_STATUS_MAP[err.code] || 500;
@@ -1729,7 +1886,7 @@ async function handleRequest(req, res) {
   // CLI 模式检测
   if (url === '/api/cli-mode' && method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ cliMode: isCliMode, workspaceMode: isWorkspaceMode && !_workspaceLaunched }));
+    res.end(JSON.stringify({ cliMode: isCliMode, sdkMode: isSdkMode, workspaceMode: isWorkspaceMode && !_workspaceLaunched }));
     return;
   }
 
@@ -1826,7 +1983,7 @@ async function handleRequest(req, res) {
   if (url === '/api/plugins' && method === 'GET') {
     const plugins = getPluginsInfo();
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ plugins, pluginsDir: PLUGINS_DIR }));
+    res.end(JSON.stringify({ plugins, pluginsDir: getPluginsDir() }));
     return;
   }
 
@@ -1837,7 +1994,7 @@ async function handleRequest(req, res) {
       res.end(JSON.stringify({ error: 'Invalid file name' }));
       return;
     }
-    const filePath = join(PLUGINS_DIR, file);
+    const filePath = join(getPluginsDir(), file);
     try {
       if (!existsSync(filePath)) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -1848,7 +2005,7 @@ async function handleRequest(req, res) {
       await loadPlugins();
       const plugins = getPluginsInfo();
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, plugins, pluginsDir: PLUGINS_DIR }));
+      res.end(JSON.stringify({ ok: true, plugins, pluginsDir: getPluginsDir() }));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: err.message }));
@@ -1861,7 +2018,7 @@ async function handleRequest(req, res) {
       await loadPlugins();
       const plugins = getPluginsInfo();
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, plugins, pluginsDir: PLUGINS_DIR }));
+      res.end(JSON.stringify({ ok: true, plugins, pluginsDir: getPluginsDir() }));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: err.message }));
@@ -1875,11 +2032,11 @@ async function handleRequest(req, res) {
     req.on('end', async () => {
       try {
         const { files: fileList } = JSON.parse(body);
-        uploadPlugins(PLUGINS_DIR, fileList);
+        uploadPlugins(getPluginsDir(), fileList);
         await loadPlugins();
         const plugins = getPluginsInfo();
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, plugins, pluginsDir: PLUGINS_DIR }));
+        res.end(JSON.stringify({ ok: true, plugins, pluginsDir: getPluginsDir() }));
       } catch (err) {
         const status = err.statusCode || 500;
         res.writeHead(status, { 'Content-Type': 'application/json' });
@@ -1896,11 +2053,11 @@ async function handleRequest(req, res) {
       try {
         const { url: fileUrl } = JSON.parse(body);
         const extractScript = join(__dirname, 'lib', 'extract-plugin-name.mjs');
-        await installPluginFromUrl(PLUGINS_DIR, fileUrl, extractScript);
+        await installPluginFromUrl(getPluginsDir(), fileUrl, extractScript);
         await loadPlugins();
         const plugins = getPluginsInfo();
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, plugins, pluginsDir: PLUGINS_DIR }));
+        res.end(JSON.stringify({ ok: true, plugins, pluginsDir: getPluginsDir() }));
       } catch (err) {
         const status = err.statusCode || 500;
         res.writeHead(status, { 'Content-Type': 'application/json' });
@@ -2484,16 +2641,94 @@ async function setupTerminalWebSocket(httpServer) {
             }
           } else if (msg.type === 'ask-hook-answer') {
             // Client answered AskUserQuestion via hook bridge
+            let askAnswered = false;
             if (pendingAskHook) {
               const { res: hookRes, timer } = pendingAskHook;
               clearTimeout(timer);
               pendingAskHook = null;
+              askAnswered = true;
               try {
                 if (!hookRes.headersSent) {
                   hookRes.writeHead(200, { 'Content-Type': 'application/json' });
                   hookRes.end(JSON.stringify({ answers: msg.answers }));
                 }
               } catch {}
+            }
+            // Broadcast resolved to other clients so they clear their ask panel
+            if (askAnswered && terminalWss) {
+              const rmsg = JSON.stringify({ type: 'ask-hook-resolved' });
+              terminalWss.clients.forEach((c) => {
+                if (c !== ws && c.readyState === 1) try { c.send(rmsg); } catch {}
+              });
+            }
+          } else if (msg.type === 'perm-hook-answer') {
+            // Permission approval — SDK mode (canUseTool) or PTY mode (hook bridge)
+            let permAnswered = false;
+            if (isSdkMode && _sdkResolveApproval && msg.id) {
+              _sdkResolveApproval(msg.id, msg.allowSession ? { decision: msg.decision || 'allow', allowSession: true } : (msg.decision || 'deny'));
+              permAnswered = true;
+            } else if (pendingPermHook && msg.id && msg.id === pendingPermHook.id) {
+              const { res: hookRes, timer } = pendingPermHook;
+              clearTimeout(timer);
+              pendingPermHook = null;
+              permAnswered = true;
+              try {
+                if (!hookRes.headersSent) {
+                  hookRes.writeHead(200, { 'Content-Type': 'application/json' });
+                  hookRes.end(JSON.stringify({ decision: msg.decision || 'deny' }));
+                }
+              } catch {}
+            }
+            // Broadcast resolved only when an answer was actually processed
+            if (permAnswered && terminalWss) {
+              const rmsg = JSON.stringify({ type: 'perm-hook-resolved', id: msg.id });
+              terminalWss.clients.forEach((c) => {
+                if (c !== ws && c.readyState === 1) try { c.send(rmsg); } catch {}
+              });
+            }
+          } else if (msg.type === 'sdk-ask-answer') {
+            // AskUserQuestion answer in SDK mode — resolve canUseTool Promise
+            if (_sdkResolveApproval && msg.id) {
+              _sdkResolveApproval(msg.id, msg.answers);
+            }
+            // Broadcast resolved to other clients
+            if (msg.id && terminalWss) {
+              const rmsg = JSON.stringify({ type: 'sdk-ask-resolved', id: msg.id });
+              terminalWss.clients.forEach((c) => {
+                if (c !== ws && c.readyState === 1) try { c.send(rmsg); } catch {}
+              });
+            }
+          } else if (msg.type === 'sdk-plan-answer') {
+            // Plan approval in SDK mode
+            if (_sdkResolveApproval) {
+              _sdkResolveApproval(msg.id, { approve: msg.approve !== false, feedback: msg.feedback || '' });
+            }
+            // Broadcast resolved to other clients
+            if (terminalWss) {
+              const rmsg = JSON.stringify({ type: 'sdk-plan-resolved', id: msg.id });
+              terminalWss.clients.forEach((c) => {
+                if (c !== ws && c.readyState === 1) try { c.send(rmsg); } catch {}
+              });
+            }
+          } else if (msg.type === 'sdk-user-message') {
+            // User message in SDK mode — relay to sdk-manager
+            if (_sdkSendUserMessage && msg.text) {
+              _sdkSendUserMessage(msg.text).catch(err => {
+                console.error('[SDK] sendUserMessage error:', err.message);
+              });
+            }
+          } else if (msg.type === 'image-remove-notify' || msg.type === 'image-upload-notify') {
+            // Security: only allow paths within upload directories, reject traversal
+            const p = msg.path;
+            if (terminalWss && p && !p.includes('..') && (
+              p.startsWith('/tmp/cc-viewer-uploads/') || (p.includes('/cc-viewer/') && p.includes('/images/'))
+            )) {
+              const rmsg = msg.type === 'image-upload-notify'
+                ? JSON.stringify({ type: 'image-upload-notify', path: p, source: msg.source || 'unknown' })
+                : JSON.stringify({ type: 'image-remove-notify', path: p });
+              terminalWss.clients.forEach((c) => {
+                if (c !== ws && c.readyState === 1) try { c.send(rmsg); } catch {}
+              });
             }
           } else if (msg.type === 'resize') {
             // 存储该客户端的尺寸
@@ -2559,6 +2794,8 @@ let _lastStreamingActive = false;
 function startStreamingStatusTimer() {
   if (_streamingStatusTimer) return;
   _streamingStatusTimer = setInterval(() => {
+    // SDK mode uses its own streaming state (pushed directly via setSdkStreamingState)
+    if (isSdkMode) return;
     const changed = streamingState.active !== _lastStreamingActive;
     if (changed || streamingState.active) {
       const data = streamingState.active
@@ -2618,6 +2855,38 @@ async function _doStop() {
   resetStreamingState();
   try { unwatchFile(PROFILE_PATH); } catch {} // 清理 interceptor 的 StatWatcher
 }
+
+// ─── SDK Mode Exports ──────────────────────────────────────────
+
+/** Push a JSONL entry to all SSE clients (for SDK mode). */
+export function pushSdkEntry(entry) {
+  if (sendToClients) sendToClients(clients, entry);
+}
+
+/** Update streaming status (for SDK mode). */
+export function setSdkStreamingState(data) {
+  if (clients.length > 0 && sendEventToClients) {
+    sendEventToClients(clients, 'streaming_status', data);
+  }
+}
+
+/** Broadcast a message to all terminal WS clients (for SDK canUseTool). */
+export function broadcastWsMessage(msg) {
+  if (terminalWss) {
+    const str = typeof msg === 'string' ? msg : JSON.stringify(msg);
+    terminalWss.clients.forEach((c) => {
+      if (c.readyState === 1) try { c.send(str); } catch {}
+    });
+  }
+}
+
+/** Reference to sdk-manager's resolveApproval (set by cli.js after import). */
+let _sdkResolveApproval = null;
+export function setSdkResolveApproval(fn) { _sdkResolveApproval = fn; }
+
+/** Reference to sdk-manager's sendUserMessage (set by cli.js after import). */
+let _sdkSendUserMessage = null;
+export function setSdkSendUserMessage(fn) { _sdkSendUserMessage = fn; }
 
 // Auto-start the viewer after log file init completes
 // 工作区模式下由 cli.js 直接 import server.js 触发启动，跳过 _initPromise 自动启动

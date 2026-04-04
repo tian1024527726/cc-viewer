@@ -1,5 +1,96 @@
 # Changelog
 
+## 1.6.99 (2026-04-05)
+
+- Fix: git commit/push and npm publish force Web UI approval even in `--d` (bypass permissions) mode
+
+## 1.6.98 (2026-04-05)
+
+- Feat: global settings log directory config — runtime `setLogDir()` with preferences UI, dynamic `getPrefsFile()`/`getPluginsDir()`/`getWorkspacesFile()`
+- Feat: GlobalSettings concept doc (?) — 13-section configuration reference in 18 languages
+- Feat: perm-bridge merge git/npm guard — eliminate Bash matcher hook conflict, `ensureHooks()` auto-cleanup
+- Feat: WebFetch/WebSearch added to APPROVAL_TOOLS — external access tools now require Web UI approval
+- Feat: explicit allow for non-APPROVAL_TOOLS — prevent Claude Code terminal fallback for safe tools
+- Feat: approval panel positioned inside chat area — `position: absolute` relative to `messageListWrap`, dynamic width
+- Fix: 7 `apiUrl()` omissions fixed — FileExplorer, ChatView, ChatMessage, FileContentView, GitDiffView, ConceptHelp
+- Fix: `setLogDir()` path traversal protection — restrict to `homedir()` or `/tmp/`
+- Fix: ES module live binding — `workspace-registry.js` and `plugin-loader.js` use getter functions for `LOG_DIR`-derived paths
+- Test: 7 git guard tests (3 deny + 4 pass-through), plugin-loader test updated for `getPluginsDir()`
+
+## 1.6.97 (2026-04-04)
+
+- Feat: terminal-chat image awareness bridge — `pendingImages` state with preview strip (thumbnails for images, file chips for non-images)
+- Feat: chat textarea image paste support — clipboard image paste uploads and adds to preview
+- Feat: multi-device file upload/remove sync via WS `image-upload-notify` / `image-remove-notify`
+- Feat: deferred path injection — file paths not inserted into textarea, prepended at send time from `pendingImages`
+- Fix: PTY prompt detection — allow trailing hint lines (e.g. "Enter to confirm") in both numbered and cursor option patterns
+- Fix: ConceptHelp event isolation — triple stop propagation (click/mousedown/pointerdown) prevents parent handler triggers
+- Fix: ImageLightbox zoom sensitivity — scroll factor reduced from 15% to 6% per tick
+- Fix: Last Response divider — dashed line via `::before`/`::after` pseudo-elements
+- Fix: mobile image preview broken — use `apiUrl()` for LAN token authentication on thumbnail URLs
+- Fix: terminal upload skip `pendingImages` on receiving device to prevent double-send
+- Security: server-side path validation for `image-upload-notify`/`image-remove-notify` — reject `..` traversal, restrict to upload directories
+- Security: send-time path sanitization — strip `"` from image paths before quoting
+
+## 1.6.96 (2026-04-04)
+
+- Feat: multi-device approval sync — broadcast `*-resolved` messages when permission/plan/ask is answered on one device
+- Feat: PTY ask-hook cross-device sync — add `ask-hook-resolved` broadcast and handler
+- Fix: conditional broadcast — only send `perm-hook-resolved` when an answer was actually processed
+- Fix: SDK ask submit null guard — prevent sending `id: null` when another device already answered
+- Fix: SDK perm-hook path `msg.id` guard for robustness
+
+## 1.6.95 (2026-04-04)
+
+- Fix: Last Response rendering vs stick-to-bottom race — lock scroll handler during startRender DOM transition
+- Fix: scrollToBottom uses stickyBottom snapshot to prevent state race during content batch updates
+- Fix: mobile Virtuoso `atBottomStateChange` guarded by scroll lock to prevent stickyBottom flip during Footer rendering
+- Fix: mobile Footer (Last Response) scroll — rAF to scroll past Virtuoso LAST index to actual container bottom
+- Refactor: perm-bridge whitelist inversion — only Bash/Edit/Write/NotebookEdit require approval, all other tools auto-pass
+- Refactor: SDK mode canUseTool applies same APPROVAL_TOOLS filter, read-only tools no longer show approval UI
+- Security: move toolName/toolInput guard before APPROVAL_TOOLS check as defensive measure
+- Test: add 32 perm-bridge unit tests covering APPROVAL_TOOLS filtering, bypass mode, and server approval flow
+
+## 1.6.94 (2026-04-04)
+
+- Feat: Agent SDK integration — new `lib/sdk-adapter.js` and `lib/sdk-manager.js` for running Claude via Agent SDK without PTY
+- Feat: SDK mode plan approval — ExitPlanMode review via WebSocket canUseTool callback
+- Feat: SDK mode AskUserQuestion — structured answer submission through WebSocket
+- Feat: "Allow for session" button in tool approval panel for session-level permission grant
+- Feat: mobile global permission/plan approval overlay (fixed positioning outside transform context)
+- Feat: mobile AskUserQuestion responsive CSS (larger touch targets)
+- Refactor: rename `ensureAskHook` → `ensureHooks`, expand perm-bridge matcher to all tools with legacy cleanup
+- Fix: AskUserQuestion dedup — prevent duplicate rendering between message history and Last Response
+- Fix: hide terminal panel and toggle in SDK mode
+- Dep: add `@anthropic-ai/claude-agent-sdk` as optionalDependencies
+
+## 1.6.93 (2026-04-03)
+
+- Feat: tool permission approval panel — floating overlay above chat input for Bash/Write/Edit/NotebookEdit approval via PreToolUse hook bridge
+- Feat: open HTML/HTM files in browser via file-raw API with CSP sandbox protection
+- Feat: open Office files (doc/xlsx/ppt/pdf etc.) with system default application
+- Feat: /api/open-file endpoint for launching local files with OS default app
+- Feat: /api/perm-hook endpoint with long-poll + WebSocket for permission bridge
+- Security: add Content-Security-Policy: sandbox header when serving HTML files to prevent same-origin XSS
+- Security: require strict ID matching for perm-hook-answer WebSocket messages
+- Fix: clear pending permission state on WebSocket disconnect to prevent stale approval panel
+
+## 1.6.92 (2026-04-03)
+
+- Fix: hide empty "Last Response" section when filtered content has no visible blocks
+- Fix: debounce streaming spinner hide by 2s to prevent flickering during tool call gaps
+- Fix: cancel spinner fade-out when streaming resumes mid-fade
+- Fix: clear streaming debounce timer on SSE reconnect and local log switch to prevent race condition
+
+## 1.6.91 (2026-04-03)
+
+- Feat: add simplified tool display mode — tool calls collapse to compact tags by default, Edit/Write/Agent/TaskCreate/EnterPlanMode/ExitPlanMode/AskUserQuestion keep full display
+- Feat: hover popover on simplified tags (desktop), click popover with zoom fix (mobile)
+- Feat: "完整展示所有内容" toggle in settings (default OFF = simplified mode)
+- Feat: gray "调用工具:" label before simplified tool tags, resets after full-display tools
+- Fix: Write tool no longer truncates at 20 lines
+- Fix: Agent/TaskCreate tool content no longer truncates at 200 chars
+
 ## 1.6.90 (2026-04-03)
 
 - Fix: shell hook re-injection — use `ccv -logger` instead of `ccv` to prevent launching programming mode when claude is invoked

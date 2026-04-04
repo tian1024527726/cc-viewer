@@ -1,6 +1,6 @@
 {
   "name": "cc-viewer",
-  "version": "1.6.90",
+  "version": "1.6.99",
   "description": "Claude Code Logger visualization management tool",
   "license": "MIT",
   "main": "server.js",
@@ -80,9 +80,9 @@
     "antd": "^5.29.2",
     "diff": "^8.0.3",
     "highlight.js": "^11.11.1",
-    "mermaid": "^11.13.0",
     "html2canvas": "^1.4.1",
     "marked": "^17.0.2",
+    "mermaid": "^11.13.0",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -95,5 +95,8 @@
     "node-pty": "^1.1.0",
     "undici": "^7.22.0",
     "ws": "^8.19.0"
+  },
+  "optionalDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.91"
   }
 }

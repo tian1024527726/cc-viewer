@@ -6,6 +6,7 @@ import { isIOS } from './env';
 import { isMainAgent, isSystemText, classifyUserContent } from './utils/contentFilter';
 import ChatView from './components/ChatView';
 import TerminalPanel from './components/TerminalPanel';
+import ToolApprovalPanel from './components/ToolApprovalPanel';
 import MobileGitDiff from './components/MobileGitDiff';
 import MobileStats from './components/MobileStats';
 import OpenFolderIcon from './components/OpenFolderIcon';
@@ -25,6 +26,8 @@ class Mobile extends AppBase {
       mobileSettingsVisible: false,
       mobilePromptVisible: false,
       mobileTerminalVisible: false,
+      globalPermission: null,     // { permission, handlers } — 全局权限审批浮层
+      globalPlanApproval: null,   // { plan, handlers } — 全局计划审批浮层
     });
   }
 
@@ -187,6 +190,9 @@ class Mobile extends AppBase {
 
   // ─── 移动端渲染 ────────────────────────────────────────
 
+  handlePendingPermission = (data) => { this.setState({ globalPermission: data }); };
+  handlePendingPlanApproval = (data) => { this.setState({ globalPlanApproval: data }); };
+
   render() {
     const { filteredRequests, fileLoading, fileLoadingCount, mainAgentSessions } = this.renderPrepare();
 
@@ -333,11 +339,13 @@ class Mobile extends AppBase {
                     userProfile={this.state.userProfile}
                     collapseToolResults={this.state.collapseToolResults}
                     expandThinking={this.state.expandThinking}
+                    showFullToolContent={this.state.showFullToolContent}
                     showThinkingSummaries={this.state.showThinkingSummaries}
                     onViewRequest={null}
                     scrollToTimestamp={null}
                     onScrollTsDone={() => {}}
                     cliMode={this.state.cliMode}
+                    sdkMode={this.state.sdkMode}
                     terminalVisible={false}
                     mobileChatVisible={true}
                     fileLoading={this.state.fileLoading}
@@ -347,6 +355,8 @@ class Mobile extends AppBase {
                     onLoadMoreHistory={() => this.loadMoreHistory()}
                     loadingSessionId={this.state.loadingSessionId}
                     onLoadSession={(sid) => this.loadSession(sid)}
+                    onPendingPermission={this.handlePendingPermission}
+                    onPendingPlanApproval={this.handlePendingPlanApproval}
                   />
                 </div>
               </ConfigProvider>
@@ -378,11 +388,13 @@ class Mobile extends AppBase {
                   userProfile={this.state.userProfile}
                   collapseToolResults={this.state.collapseToolResults}
                   expandThinking={this.state.expandThinking}
+                  showFullToolContent={this.state.showFullToolContent}
                   showThinkingSummaries={this.state.showThinkingSummaries}
                   onViewRequest={null}
                   scrollToTimestamp={null}
                   onScrollTsDone={() => {}}
                   cliMode={this.state.cliMode}
+                  sdkMode={this.state.sdkMode}
                   terminalVisible={false}
                   mobileChatVisible={this.state.mobileChatVisible}
                   fileLoading={this.state.fileLoading}
@@ -392,6 +404,8 @@ class Mobile extends AppBase {
                   onLoadMoreHistory={() => this.loadMoreHistory()}
                   loadingSessionId={this.state.loadingSessionId}
                   onLoadSession={(sid) => this.loadSession(sid)}
+                  onPendingPermission={this.handlePendingPermission}
+                  onPendingPlanApproval={this.handlePendingPlanApproval}
                 />
               </div>
             </ConfigProvider>
@@ -492,6 +506,13 @@ class Mobile extends AppBase {
                   onChange={this.handleExpandThinkingChange}
                 />
               </div>
+              <div className={styles.mobileSettingsRow}>
+                <span className={styles.mobileSettingsLabel}>{t('ui.showFullToolContent')}</span>
+                <Switch
+                  checked={!!this.state.showFullToolContent}
+                  onChange={this.handleShowFullToolContentChange}
+                />
+              </div>
             </div>
           </div>
           <div className={`${styles.mobilePromptOverlay} ${this.state.mobilePromptVisible ? styles.mobilePromptOverlayVisible : ''}`}>
@@ -546,6 +567,30 @@ class Mobile extends AppBase {
             </div>
           </div>
         </div>
+        {/* 全局权限审批浮层 — 在 mobileCLIBody 之外渲染，避免 transform 影响 position: fixed */}
+        {this.state.globalPermission && (
+          <ToolApprovalPanel
+            toolName={this.state.globalPermission.permission.toolName}
+            toolInput={this.state.globalPermission.permission.input}
+            requestId={this.state.globalPermission.permission.id}
+            onAllow={this.state.globalPermission.handlers.allow}
+            onAllowSession={this.state.globalPermission.handlers.allowSession}
+            onDeny={this.state.globalPermission.handlers.deny}
+            visible={true}
+            global={true}
+          />
+        )}
+        {this.state.globalPlanApproval && (
+          <ToolApprovalPanel
+            toolName="ExitPlanMode"
+            toolInput={this.state.globalPlanApproval.plan.input}
+            requestId={this.state.globalPlanApproval.plan.id}
+            onAllow={this.state.globalPlanApproval.handlers.approve}
+            onDeny={(id) => this.state.globalPlanApproval.handlers.reject(id, '')}
+            visible={true}
+            global={true}
+          />
+        )}
       </div>
     );
   }

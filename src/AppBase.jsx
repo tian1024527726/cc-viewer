@@ -54,6 +54,8 @@ class AppBase extends React.Component {
       collapseToolResults: true,
       expandThinking: true,
       expandDiff: false,
+      logDir: '',
+      showFullToolContent: false,
       showThinkingSummaries: false,
       fileLoading: false,
       fileLoadingCount: 0,
@@ -61,6 +63,7 @@ class AppBase extends React.Component {
       selectedLogs: new Set(),   // Set<file>
       githubStars: null,
       cliMode: false,
+      sdkMode: false,
       workspaceMode: false,
       serverCachedContent: null,
       updateInfo: null,
@@ -205,12 +208,18 @@ class AppBase extends React.Component {
         if (data.expandDiff !== undefined) {
           this.setState({ expandDiff: !!data.expandDiff });
         }
+        if (data.showFullToolContent !== undefined) {
+          this.setState({ showFullToolContent: !!data.showFullToolContent });
+        }
         if (data.resumeAutoChoice) {
           this.setState({ resumeAutoChoice: data.resumeAutoChoice });
         }
         // filterIrrelevant 默认 true，showAll = !filterIrrelevant
         const filterIrrelevant = data.filterIrrelevant !== undefined ? !!data.filterIrrelevant : true;
         this.setState({ showAll: !filterIrrelevant });
+        if (data.logDir) {
+          this.setState({ logDir: data.logDir });
+        }
         return data;
       })
       .catch(() => ({}));
@@ -314,7 +323,7 @@ class AppBase extends React.Component {
         if (data.workspaceMode) {
           this.setState({ cliMode: true, workspaceMode: true, isWorkspaceServer: true });
         } else if (data.cliMode) {
-          this.setState({ cliMode: true, viewMode: 'chat' });
+          this.setState({ cliMode: true, sdkMode: !!data.sdkMode, viewMode: 'chat' });
         }
       })
       .catch(() => { });
@@ -337,6 +346,7 @@ class AppBase extends React.Component {
     if (this._evictionTimer) clearTimeout(this._evictionTimer);
     if (this._sseTimeoutTimer) clearTimeout(this._sseTimeoutTimer);
     if (this._sseReconnectTimer) clearTimeout(this._sseReconnectTimer);
+    if (this._streamingOffTimer) clearTimeout(this._streamingOffTimer);
   }
 
   // ─── SSE 通信 ───────────────────────────────────────────
@@ -358,6 +368,7 @@ class AppBase extends React.Component {
     }
     this._sseReconnectCount = (this._sseReconnectCount || 0) + 1;
     if (this.eventSource) { this.eventSource.close(); this.eventSource = null; }
+    if (this._streamingOffTimer) { clearTimeout(this._streamingOffTimer); this._streamingOffTimer = null; }
     if (this._flushRafId) { cancelAnimationFrame(this._flushRafId); this._flushRafId = null; }
 
     // 增量恢复：如果加载中断，保存已收到的 chunked entries 以便重连后增量续传
@@ -753,7 +764,17 @@ class AppBase extends React.Component {
         this._resetSSETimeout();
         try {
           const data = JSON.parse(e.data);
-          this.setState({ isStreaming: !!data.active });
+          if (data.active) {
+            // 立即显示 loading
+            clearTimeout(this._streamingOffTimer);
+            this.setState({ isStreaming: true });
+          } else {
+            // 延迟隐藏，避免工具调用间隙导致 spinner 频繁闪烁
+            clearTimeout(this._streamingOffTimer);
+            this._streamingOffTimer = setTimeout(() => {
+              this.setState({ isStreaming: false });
+            }, 2000);
+          }
         } catch (err) { console.error('Failed to parse streaming_status:', err); }
       });
       this.eventSource.onerror = () => console.error('SSE连接错误');
@@ -1188,6 +1209,29 @@ class AppBase extends React.Component {
     }).catch(() => { });
   };
 
+  handleLogDirChange = (value) => {
+    if (!value || typeof value !== 'string') return;
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    this.setState({ logDir: trimmed });
+    fetch(apiUrl('/api/preferences'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ logDir: trimmed }),
+    }).then(r => r.json()).then(data => {
+      if (data.logDir) this.setState({ logDir: data.logDir });
+    }).catch(() => { });
+  };
+
+  handleShowFullToolContentChange = (checked) => {
+    this.setState({ showFullToolContent: checked });
+    fetch(apiUrl('/api/preferences'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ showFullToolContent: checked }),
+    }).catch(() => { });
+  };
+
   handleFilterIrrelevantChange = (checked) => {
     this.setState(prev => {
       const newShowAll = !checked;
@@ -1524,6 +1568,7 @@ class AppBase extends React.Component {
       this._isLocalLog = true;
       this._localLogFile = fileNames.length === 1 ? fileNames[0] : `${fileNames.length} files`;
       if (this.eventSource) { this.eventSource.close(); this.eventSource = null; }
+      if (this._streamingOffTimer) { clearTimeout(this._streamingOffTimer); this._streamingOffTimer = null; }
       this.setState({
         requests: entries,
         selectedIndex: filtered.length > 0 ? filtered.length - 1 : null,

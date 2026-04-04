@@ -8,6 +8,7 @@ import ImageViewer from './ImageViewer';
 import ImageLightbox from './ImageLightbox';
 import GitChanges from './GitChanges';
 import GitDiffView from './GitDiffView';
+import ToolApprovalPanel from './ToolApprovalPanel';
 import { getModelInfo } from '../utils/helpers';
 import { getTeammateAvatar } from '../utils/teammateAvatars';
 import { isSystemText, classifyUserContent, isMainAgent, isTeammate, resolveTeammateNames } from '../utils/contentFilter';
@@ -107,6 +108,9 @@ class ChatView extends React.Component {
       streamingFading: false,
       presetItems: [],
       localAskAnswers: {}, // 提交后的本地答案映射，用于 Last Response 立即切换到非交互式
+      pendingPermission: null, // { id, toolName, input } — active permission approval request
+      pendingPlanApproval: null, // { id, input } — active ExitPlanMode approval in SDK mode
+      pendingImages: [], // [{ path, source }] — images uploaded/pasted, shown as previews in chat input
     };
     this._processedToolIds = new Set();
     this._projectDirCache = null; // 缓存项目目录绝对路径
@@ -247,6 +251,7 @@ class ChatView extends React.Component {
       nextProps.mainAgentSessions !== this.props.mainAgentSessions ||
       nextProps.collapseToolResults !== this.props.collapseToolResults ||
       nextProps.expandThinking !== this.props.expandThinking ||
+      nextProps.showFullToolContent !== this.props.showFullToolContent ||
       nextProps.scrollToTimestamp !== this.props.scrollToTimestamp ||
       nextProps.cliMode !== this.props.cliMode ||
       nextProps.terminalVisible !== this.props.terminalVisible ||
@@ -263,7 +268,32 @@ class ChatView extends React.Component {
     );
   }
 
-  componentDidUpdate(prevProps) {
+  componentDidUpdate(prevProps, prevState) {
+    // 通知父组件权限审批状态变化（用于移动端全局浮层）
+    if (prevState.pendingPermission !== this.state.pendingPermission && this.props.onPendingPermission) {
+      if (this.state.pendingPermission) {
+        this.props.onPendingPermission({
+          permission: this.state.pendingPermission,
+          handlers: {
+            allow: this.handlePermissionAllow,
+            allowSession: this.props.sdkMode ? this.handlePermissionAllowSession : null,
+            deny: this.handlePermissionDeny,
+          },
+        });
+      } else {
+        this.props.onPendingPermission(null);
+      }
+    }
+    if (prevState.pendingPlanApproval !== this.state.pendingPlanApproval && this.props.onPendingPlanApproval) {
+      if (this.state.pendingPlanApproval) {
+        this.props.onPendingPlanApproval({
+          plan: this.state.pendingPlanApproval,
+          handlers: { approve: this.handlePlanApprove, reject: this.handlePlanReject },
+        });
+      } else {
+        this.props.onPendingPlanApproval(null);
+      }
+    }
     // Streaming border fade-out: when isStreaming goes from true to false, trigger fade
     if (prevProps.isStreaming && !this.props.isStreaming) {
       this.setState({ streamingFading: true });
@@ -272,17 +302,17 @@ class ChatView extends React.Component {
         this.setState({ streamingFading: false });
       }, 500);
     }
-    // Handle files dropped onto the app
+    // 如果 streaming 在 fade-out 期间恢复，立即取消 fade 避免 spinner 以 opacity:0 显示
+    if (!prevProps.isStreaming && this.props.isStreaming && this.state.streamingFading) {
+      clearTimeout(this._streamingFadeTimer);
+      this.setState({ streamingFading: false });
+    }
+    // Handle files dropped onto the app — add to pendingImages, send at submit time
     if (this.props.pendingUploadPaths && this.props.pendingUploadPaths.length > 0
       && this.props.pendingUploadPaths !== prevProps.pendingUploadPaths) {
-      const paths = this.props.pendingUploadPaths.join(' ');
-      const textarea = this._inputRef.current;
-      if (textarea) {
-        textarea.value = (textarea.value ? textarea.value + ' ' : '') + paths;
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        this.setState({ inputEmpty: false });
-      } else if (this._inputWs && this._inputWs.readyState === WebSocket.OPEN) {
-        this._inputWs.send(JSON.stringify({ type: 'input', data: paths }));
+      for (const p of this.props.pendingUploadPaths) {
+        const raw = p.replace(/^"|"$/g, '');
+        this._addPendingImage(raw, 'drop');
       }
       if (this.props.onUploadPathsConsumed) this.props.onUploadPathsConsumed();
     }
@@ -300,6 +330,7 @@ class ChatView extends React.Component {
       if (this.state.pendingInput) {
         this.setState({ pendingInput: null });
       }
+      this._clearPendingImages();
       this._updateSuggestion();
       this._checkToolFileChanges();
     } else if (prevProps.requests !== this.props.requests) {
@@ -356,6 +387,9 @@ class ChatView extends React.Component {
 
   componentWillUnmount() {
     this._unmounted = true;
+    // 清理全局权限通知
+    if (this.props.onPendingPermission) this.props.onPendingPermission(null);
+    if (this.props.onPendingPlanApproval) this.props.onPendingPlanApproval(null);
     if (this._queueTimer) clearTimeout(this._queueTimer);
     if (this._fadeClearTimer) clearTimeout(this._fadeClearTimer);
     if (this._ptyDebounceTimer) clearTimeout(this._ptyDebounceTimer);
@@ -380,13 +414,22 @@ class ChatView extends React.Component {
   startRender() {
     if (this._queueTimer) clearTimeout(this._queueTimer);
 
+    // 快照：捕获 startRender 开始时的 stickyBottom，防止 scroll handler 在 DOM 过渡期翻转它
+    const wasSticky = this.state.stickyBottom;
+    // 加锁：阻止 scroll handler 在 DOM commit 过渡期间误翻转 stickyBottom
+    this._stickyScrollLock = true;
+
     const rawItems = this.buildAllItems();
     const lastResponseItems = this._lastResponseItems;
     const allItems = this._applyMobileSlice(rawItems);
     this._prevItemsLen = allItems.length;
 
     this.setState({ allItems, lastResponseItems, visibleCount: allItems.length, loading: false },
-      () => this.scrollToBottom());
+      () => {
+        this.scrollToBottom(wasSticky);
+        // 延迟解锁：等待浏览器完成本次 layout + paint 后再允许 scroll handler 工作
+        requestAnimationFrame(() => { this._stickyScrollLock = false; });
+      });
   }
 
   queueNext(current, total) {
@@ -405,7 +448,9 @@ class ChatView extends React.Component {
     return el.scrollHeight - el.scrollTop - el.clientHeight <= 30;
   }
 
-  scrollToBottom() {
+  scrollToBottom(stickyOverride) {
+    // stickyOverride: startRender 传入的快照值，优先于当前 state（防止竞态翻转）
+    const shouldStick = stickyOverride != null ? stickyOverride : this.state.stickyBottom;
     // 移动端：Virtuoso API
     if (isMobile && this.virtuosoRef.current) {
       if (this._scrollTargetIdx != null) {
@@ -419,8 +464,16 @@ class ChatView extends React.Component {
         if (this.props.onScrollTsDone) this.props.onScrollTsDone();
         return;
       }
-      if (this.state.stickyBottom) {
+      if (shouldStick) {
         this.virtuosoRef.current.scrollToIndex({ index: 'LAST', behavior: 'auto' });
+        // Footer 包含 lastResponseItems，scrollToIndex LAST 只到最后一个 data item，
+        // 需要额外滚动到容器真正底部以显示 Footer 内容
+        if (this.state.lastResponseItems) {
+          requestAnimationFrame(() => {
+            const scroller = this._virtuosoScrollerEl;
+            if (scroller) scroller.scrollTop = scroller.scrollHeight;
+          });
+        }
       }
       return;
     }
@@ -442,7 +495,7 @@ class ChatView extends React.Component {
       if (this.props.onScrollTsDone) this.props.onScrollTsDone();
       return;
     }
-    if (this.state.stickyBottom) {
+    if (shouldStick) {
       const el = this.containerRef.current;
       if (el) el.scrollTop = el.scrollHeight;
     }
@@ -498,6 +551,34 @@ class ChatView extends React.Component {
         if (el) el.scrollTop = el.scrollHeight;
       }
     });
+  };
+
+  _addPendingImage = (path, source) => {
+    if (!path) return;
+    this.setState(prev => {
+      if (prev.pendingImages.length >= 20) return null; // cap
+      if (prev.pendingImages.some(img => img.path === path)) return null; // dedup
+      return { pendingImages: [...prev.pendingImages, { path, source }] };
+    });
+  };
+
+  _removePendingImage = (index) => {
+    this.setState(prev => {
+      const img = prev.pendingImages[index];
+      if (!img) return null;
+      const next = prev.pendingImages.filter((_, i) => i !== index);
+      // Notify other clients to remove the same file
+      if (img.path && this._inputWs && this._inputWs.readyState === WebSocket.OPEN) {
+        this._inputWs.send(JSON.stringify({ type: 'image-remove-notify', path: img.path }));
+      }
+      return { pendingImages: next };
+    });
+  };
+
+  _clearPendingImages = () => {
+    if (this.state.pendingImages.length > 0) {
+      this.setState({ pendingImages: [] });
+    }
   };
 
   handleLoadMore = () => {
@@ -564,7 +645,7 @@ class ChatView extends React.Component {
   }
 
   renderSessionMessages(messages, keyPrefix, modelInfo, tsToIndex) {
-    const { userProfile, collapseToolResults, expandThinking, showThinkingSummaries, onViewRequest } = this.props;
+    const { userProfile, collapseToolResults, expandThinking, showFullToolContent, showThinkingSummaries, onViewRequest } = this.props;
     // 增量 / WeakMap 缓存
     let cached = getToolResultCache(messages);
     if (!cached) {
@@ -593,6 +674,13 @@ class ChatView extends React.Component {
     let lastPendingPlanId = null;
     // P2: 只允许最后一个 pending 的 AskUserQuestion 卡片交互
     let lastPendingAskId = null;
+    // 收集历史中所有 AskUserQuestion block ID，用于 Last Response 去重
+    const historyAskIds = new Set();
+    // 合并 localAskAnswers 到历史 askAnswerMap，使提交后立即显示已回答
+    const _localAsk = this.state.localAskAnswers || {};
+    const mergedAskAnswerMap = Object.keys(_localAsk).length > 0
+      ? { ...askAnswerMap, ..._localAsk }
+      : askAnswerMap;
     for (const msg of messages) {
       if (msg.role === 'assistant' && Array.isArray(msg.content)) {
         for (const block of msg.content) {
@@ -603,7 +691,8 @@ class ChatView extends React.Component {
             }
           }
           if (block.type === 'tool_use' && block.name === 'AskUserQuestion') {
-            const answers = askAnswerMap[block.id];
+            historyAskIds.add(block.id);
+            const answers = mergedAskAnswerMap[block.id];
             if (!answers || Object.keys(answers).length === 0) {
               lastPendingAskId = block.id;
             }
@@ -661,11 +750,11 @@ class ChatView extends React.Component {
       } else if (msg.role === 'assistant') {
         if (Array.isArray(content)) {
           renderedMessages.push(
-            <ChatMessage key={`${keyPrefix}-asst-${mi}`} role="assistant" content={content} toolResultMap={toolResultMap} readContentMap={readContentMap} editSnapshotMap={editSnapshotMap} askAnswerMap={askAnswerMap} planApprovalMap={planApprovalMap} latestPlanContent={latestPlanContent} timestamp={ts} modelInfo={modelInfo} collapseToolResults={collapseToolResults} expandThinking={expandThinking} showThinkingSummaries={showThinkingSummaries} ptyPrompt={this.state.ptyPrompt} activePlanPrompt={activePlanPrompt} activeDangerousPrompt={activeDangerousPrompt} lastPendingPlanId={lastPendingPlanId} lastPendingAskId={lastPendingAskId} onPlanApprovalClick={this.handlePromptOptionClick} onPlanFeedbackSubmit={this.handlePlanFeedbackSubmit} onDangerousApprovalClick={this.handlePromptOptionClick} onAskQuestionSubmit={this.handleAskQuestionSubmit} cliMode={this.props.cliMode} onOpenFile={this.handleOpenToolFilePath} {...viewReqProps} />
+            <ChatMessage key={`${keyPrefix}-asst-${mi}`} role="assistant" content={content} toolResultMap={toolResultMap} readContentMap={readContentMap} editSnapshotMap={editSnapshotMap} askAnswerMap={mergedAskAnswerMap} planApprovalMap={planApprovalMap} latestPlanContent={latestPlanContent} timestamp={ts} modelInfo={modelInfo} collapseToolResults={collapseToolResults} expandThinking={expandThinking} showFullToolContent={showFullToolContent} showThinkingSummaries={showThinkingSummaries} ptyPrompt={this.state.ptyPrompt} activePlanPrompt={activePlanPrompt} activeDangerousPrompt={activeDangerousPrompt} lastPendingPlanId={lastPendingPlanId} lastPendingAskId={lastPendingAskId} onPlanApprovalClick={this.handlePromptOptionClick} onPlanFeedbackSubmit={this.handlePlanFeedbackSubmit} onDangerousApprovalClick={this.handlePromptOptionClick} onAskQuestionSubmit={this.handleAskQuestionSubmit} cliMode={this.props.cliMode} onOpenFile={this.handleOpenToolFilePath} {...viewReqProps} />
           );
         } else if (typeof content === 'string') {
           renderedMessages.push(
-            <ChatMessage key={`${keyPrefix}-asst-${mi}`} role="assistant" content={[{ type: 'text', text: content }]} toolResultMap={toolResultMap} readContentMap={readContentMap} editSnapshotMap={editSnapshotMap} askAnswerMap={askAnswerMap} planApprovalMap={planApprovalMap} latestPlanContent={latestPlanContent} timestamp={ts} modelInfo={modelInfo} collapseToolResults={collapseToolResults} expandThinking={expandThinking} showThinkingSummaries={showThinkingSummaries} ptyPrompt={this.state.ptyPrompt} activePlanPrompt={activePlanPrompt} activeDangerousPrompt={activeDangerousPrompt} lastPendingPlanId={lastPendingPlanId} lastPendingAskId={lastPendingAskId} onPlanApprovalClick={this.handlePromptOptionClick} onPlanFeedbackSubmit={this.handlePlanFeedbackSubmit} onDangerousApprovalClick={this.handlePromptOptionClick} onAskQuestionSubmit={this.handleAskQuestionSubmit} cliMode={this.props.cliMode} onOpenFile={this.handleOpenToolFilePath} {...viewReqProps} />
+            <ChatMessage key={`${keyPrefix}-asst-${mi}`} role="assistant" content={[{ type: 'text', text: content }]} toolResultMap={toolResultMap} readContentMap={readContentMap} editSnapshotMap={editSnapshotMap} askAnswerMap={mergedAskAnswerMap} planApprovalMap={planApprovalMap} latestPlanContent={latestPlanContent} timestamp={ts} modelInfo={modelInfo} collapseToolResults={collapseToolResults} expandThinking={expandThinking} showFullToolContent={showFullToolContent} showThinkingSummaries={showThinkingSummaries} ptyPrompt={this.state.ptyPrompt} activePlanPrompt={activePlanPrompt} activeDangerousPrompt={activeDangerousPrompt} lastPendingPlanId={lastPendingPlanId} lastPendingAskId={lastPendingAskId} onPlanApprovalClick={this.handlePromptOptionClick} onPlanFeedbackSubmit={this.handlePlanFeedbackSubmit} onDangerousApprovalClick={this.handlePromptOptionClick} onAskQuestionSubmit={this.handleAskQuestionSubmit} cliMode={this.props.cliMode} onOpenFile={this.handleOpenToolFilePath} {...viewReqProps} />
           );
         }
       }
@@ -679,7 +768,7 @@ class ChatView extends React.Component {
    * 解决 JSONL 截断后只剩 teammate entries 导致界面空白的问题。
    */
   _buildTeammateFallbackItems() {
-    const { requests, collapseToolResults, expandThinking, onViewRequest } = this.props;
+    const { requests, collapseToolResults, expandThinking, showFullToolContent, onViewRequest } = this.props;
     if (!requests || requests.length === 0) return [];
 
     // Teammate 名称解析
@@ -721,7 +810,7 @@ class ChatView extends React.Component {
           const lastItems = respContent
             .filter(b => b.type === 'text' && b.text)
             .map((b, bi) => (
-              <ChatMessage key={`tm-resp-${si}-${bi}`} role="assistant" content={[b]} collapseToolResults={collapseToolResults} expandThinking={expandThinking} onViewRequest={onViewRequest} onOpenFile={this.handleOpenToolFilePath} />
+              <ChatMessage key={`tm-resp-${si}-${bi}`} role="assistant" content={[b]} collapseToolResults={collapseToolResults} expandThinking={expandThinking} showFullToolContent={showFullToolContent} onViewRequest={onViewRequest} onOpenFile={this.handleOpenToolFilePath} />
             ));
           if (lastItems.length > 0) {
             this._lastResponseItems = lastItems;
@@ -735,7 +824,7 @@ class ChatView extends React.Component {
   }
 
   buildAllItems() {
-    const { mainAgentSessions, requests, collapseToolResults, expandThinking, onViewRequest } = this.props;
+    const { mainAgentSessions, requests, collapseToolResults, expandThinking, showFullToolContent, onViewRequest } = this.props;
     this._lastResponseItems = null;
     this._lastResponseAskQuestions = null;
     if (!mainAgentSessions || mainAgentSessions.length === 0) {
@@ -869,7 +958,7 @@ class ChatView extends React.Component {
           const sa = subAgentEntries[subIdx];
           if (sa.timestamp) tsItemMap[sa.timestamp] = allItems.length;
           allItems.push(
-            <ChatMessage key={`sub-${sa.requestIndex}-${sa.timestamp}`} role="sub-agent-chat" content={sa.content} toolResultMap={sa.toolResultMap} label={sa.label} isTeammate={sa.isTeammate} timestamp={sa.timestamp} collapseToolResults={collapseToolResults} expandThinking={expandThinking} requestIndex={sa.requestIndex} onViewRequest={onViewRequest} onOpenFile={this.handleOpenToolFilePath} />
+            <ChatMessage key={`sub-${sa.requestIndex}-${sa.timestamp}`} role="sub-agent-chat" content={sa.content} toolResultMap={sa.toolResultMap} label={sa.label} isTeammate={sa.isTeammate} timestamp={sa.timestamp} collapseToolResults={collapseToolResults} expandThinking={expandThinking} showFullToolContent={showFullToolContent} requestIndex={sa.requestIndex} onViewRequest={onViewRequest} onOpenFile={this.handleOpenToolFilePath} />
           );
           subIdx++;
         }
@@ -884,7 +973,7 @@ class ChatView extends React.Component {
         if (nextSessionStart && sa.timestamp > nextSessionStart) break;
         if (sa.timestamp) tsItemMap[sa.timestamp] = allItems.length;
         allItems.push(
-          <ChatMessage key={`sub-${sa.requestIndex}-${sa.timestamp}`} role="sub-agent-chat" content={sa.content} toolResultMap={sa.toolResultMap} label={sa.label} isTeammate={sa.isTeammate} timestamp={sa.timestamp} collapseToolResults={collapseToolResults} expandThinking={expandThinking} requestIndex={sa.requestIndex} onViewRequest={onViewRequest} onOpenFile={this.handleOpenToolFilePath} />
+          <ChatMessage key={`sub-${sa.requestIndex}-${sa.timestamp}`} role="sub-agent-chat" content={sa.content} toolResultMap={sa.toolResultMap} label={sa.label} isTeammate={sa.isTeammate} timestamp={sa.timestamp} collapseToolResults={collapseToolResults} expandThinking={expandThinking} showFullToolContent={showFullToolContent} requestIndex={sa.requestIndex} onViewRequest={onViewRequest} onOpenFile={this.handleOpenToolFilePath} />
         );
         subIdx++;
       }
@@ -902,6 +991,17 @@ class ChatView extends React.Component {
           const shouldHide = hasSuggestionMode && !hasInteractiveBlock;
 
           if (!shouldHide) {
+            // 收集历史消息中所有 AskUserQuestion block ID，用于 Last Response 去重
+            const historyAskIds = new Set();
+            for (const msg of session.messages) {
+              if (msg.role === 'assistant' && Array.isArray(msg.content)) {
+                for (const block of msg.content) {
+                  if (block.type === 'tool_use' && block.name === 'AskUserQuestion') {
+                    historyAskIds.add(block.id);
+                  }
+                }
+              }
+            }
             // Last Response 单独存储，不混入主列表
             if (session.entryTimestamp) tsItemMap[session.entryTimestamp] = allItems.length;
             let respLastPendingAskId = null;
@@ -941,15 +1041,24 @@ class ChatView extends React.Component {
               ? this.state.ptyPromptHistory.slice().reverse().find(p => isDangerousOperationPrompt(p) && p.status === 'active') || null
               : null;
             // Last Response 过滤：隐藏 tool_use 块，仅保留交互卡片（AskUserQuestion / ExitPlanMode）
+            // 去重：如果 AskUserQuestion 已在消息历史中渲染，不再在 Last Response 重复显示
             const lrContent = respContent.filter(b =>
-              b.type !== 'tool_use' || b.name === 'AskUserQuestion' || b.name === 'ExitPlanMode'
+              b.type !== 'tool_use' || ((b.name === 'AskUserQuestion' && !historyAskIds.has(b.id)) || b.name === 'ExitPlanMode')
             );
+            // 如果过滤后没有可见内容，不显示 Last Response 区域
+            const hasVisibleContent = lrContent.some(b => {
+              if (b.type === 'text') return typeof b.text === 'string' && b.text.trim().length > 0;
+              if (b.type === 'tool_use') return true; // AskUserQuestion / ExitPlanMode
+              if (b.type === 'thinking') return typeof b.thinking === 'string' && b.thinking.trim().length > 0;
+              return false;
+            });
+            if (!hasVisibleContent) return;
             this._lastResponseItems = (
               <React.Fragment key="last-response-group">
                 <Divider className={styles.lastResponseDivider}>
                   <Text type="secondary" className={styles.lastResponseLabel}>{t('ui.lastResponse')}</Text>
                 </Divider>
-                <ChatMessage key="resp-asst" role="assistant" content={lrContent} timestamp={session.entryTimestamp} modelInfo={modelInfo} collapseToolResults={collapseToolResults} expandThinking={expandThinking} toolResultMap={EMPTY_MAP} askAnswerMap={Object.keys(_localAsk).length > 0 ? _localAsk : EMPTY_MAP} planApprovalMap={planApprovalMap} latestPlanContent={latestPlanContent} lastPendingAskId={respLastPendingAskId} lastPendingPlanId={respLastPendingPlanId} activePlanPrompt={activePlanPrompt} activeDangerousPrompt={activeDangerousPrompt} ptyPrompt={this.state.ptyPrompt} onPlanApprovalClick={this.handlePromptOptionClick} onPlanFeedbackSubmit={this.handlePlanFeedbackSubmit} onDangerousApprovalClick={this.handlePromptOptionClick} cliMode={this.props.cliMode} onAskQuestionSubmit={this.handleAskQuestionSubmit} onOpenFile={this.handleOpenToolFilePath} />
+                <ChatMessage key="resp-asst" role="assistant" content={lrContent} timestamp={session.entryTimestamp} modelInfo={modelInfo} collapseToolResults={collapseToolResults} expandThinking={expandThinking} showFullToolContent={showFullToolContent} toolResultMap={EMPTY_MAP} askAnswerMap={Object.keys(_localAsk).length > 0 ? _localAsk : EMPTY_MAP} planApprovalMap={planApprovalMap} latestPlanContent={latestPlanContent} lastPendingAskId={respLastPendingAskId} lastPendingPlanId={respLastPendingPlanId} activePlanPrompt={activePlanPrompt} activeDangerousPrompt={activeDangerousPrompt} ptyPrompt={this.state.ptyPrompt} onPlanApprovalClick={this.handlePromptOptionClick} onPlanFeedbackSubmit={this.handlePlanFeedbackSubmit} onDangerousApprovalClick={this.handlePromptOptionClick} cliMode={this.props.cliMode} onAskQuestionSubmit={this.handleAskQuestionSubmit} onOpenFile={this.handleOpenToolFilePath} />
               </React.Fragment>
             );
           }
@@ -1088,10 +1197,68 @@ class ChatView extends React.Component {
         } else if (msg.type === 'ask-hook-timeout') {
           this._askHookActive = false;
           this._askHookQuestions = null;
+        } else if (msg.type === 'sdk-plan-pending') {
+          // SDK mode: ExitPlanMode — show plan approval UI
+          this.setState({ pendingPlanApproval: { id: msg.id, input: msg.input } });
+        } else if (msg.type === 'sdk-ask-pending') {
+          // SDK mode: AskUserQuestion via canUseTool
+          this._askHookActive = true;
+          this._askHookQuestions = msg.questions;
+          this._sdkAskId = msg.id;
+        } else if (msg.type === 'sdk-ask-timeout') {
+          this._askHookActive = false;
+          this._askHookQuestions = null;
+          this._sdkAskId = null;
+        } else if (msg.type === 'perm-hook-pending') {
+          this.setState({ pendingPermission: { id: msg.id, toolName: msg.toolName, input: msg.input } });
+        } else if (msg.type === 'perm-hook-timeout') {
+          this.setState({ pendingPermission: null });
+        } else if (msg.type === 'perm-hook-resolved') {
+          // 另一端已审批，清除本端面板
+          if (this.state.pendingPermission?.id === msg.id) {
+            this.setState({ pendingPermission: null });
+          }
+        } else if (msg.type === 'ask-hook-resolved') {
+          // 另一端已回答 AskUserQuestion (PTY hook 模式)
+          this._askHookActive = false;
+          this._askHookQuestions = null;
+        } else if (msg.type === 'sdk-ask-resolved') {
+          // 另一端已回答 AskUserQuestion (SDK 模式)
+          if (this._sdkAskId === msg.id) {
+            this._askHookActive = false;
+            this._askHookQuestions = null;
+            this._sdkAskId = null;
+          }
+        } else if (msg.type === 'sdk-plan-resolved') {
+          if (this.state.pendingPlanApproval?.id === msg.id) {
+            this.setState({ pendingPlanApproval: null });
+          }
+        } else if (msg.type === 'image-upload-notify') {
+          // 另一个视图/设备上传了图片，同步到本端 pendingImages
+          // 终端上传已直接注入 PTY，不加入 pending 避免其他设备双发
+          if (msg.source !== 'terminal') {
+            this._addPendingImage(msg.path, msg.source);
+          }
+        } else if (msg.type === 'image-remove-notify') {
+          // 另一端删除了预览中的文件，同步移除
+          if (msg.path) {
+            this.setState(prev => {
+              const next = prev.pendingImages.filter(img => img.path !== msg.path);
+              if (next.length === prev.pendingImages.length) return null;
+              return { pendingImages: next };
+            });
+          }
         }
       } catch {}
     };
     this._inputWs.onclose = () => {
+      // 清除可能残留的审批面板（WS 断连后无法响应）
+      if (this.state.pendingPermission || this.state.pendingPlanApproval) {
+        this.setState({ pendingPermission: null, pendingPlanApproval: null });
+      }
+      this._sdkAskId = null;
+      this._askHookActive = false;
+      this._askHookQuestions = null;
       this._wsReconnectTimer = setTimeout(() => {
         if (!this._unmounted && this.splitContainerRef.current && this.props.cliMode) {
           this.connectInputWs();
@@ -1128,7 +1295,8 @@ class ChatView extends React.Component {
     let options = null;
 
     // Pattern 1: Numbered options — "Question?\n  ❯ 1. Option A\n    2. Option B"
-    const match1 = buf.match(/([^\n]*\?)\s*\n((?:\s*[❯>]?\s*\d+\.\s+[^\n]+\n?){2,})$/);
+    // Allows an optional trailing hint line (e.g. "Enter to confirm · Esc to cancel")
+    const match1 = buf.match(/([^\n]*\?)\s*\n((?:\s*[❯>]?\s*\d+\.\s+[^\n]+\n?){2,})(?:\n[^\d❯>\n][^\n]*)?$/);
     if (match1) {
       question = match1[1].trim();
       const optionLines = match1[2].match(/\s*([❯>])?\s*(\d+)\.\s+([^\n]+)/g);
@@ -1147,8 +1315,9 @@ class ChatView extends React.Component {
     // Pattern 2: Non-numbered cursor-based options (Ink Select) —
     // "Some prompt text\n  ❯ Allow once\n    Deny"
     // Question line may or may not end with "?"
+    // Allows an optional trailing hint line (e.g. "Enter to confirm · Esc to cancel")
     if (!options) {
-      const match2 = buf.match(/([^\n]+)\n((?:\s+[❯>]?\s+[^\n]+\n?){2,})$/);
+      const match2 = buf.match(/([^\n]+)\n((?:\s+[❯>]?\s+[^\n]+\n?){2,})(?:\n[^\s❯>\n][^\n]*)?$/);
       if (match2) {
         const candidateQ = match2[1].trim();
         const block = match2[2];
@@ -1291,6 +1460,46 @@ class ChatView extends React.Component {
     setTimeout(() => { this._promptSubmitting = false; }, 500);
   };
 
+  handlePermissionAllow = (id) => {
+    const ws = this._inputWs;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'perm-hook-answer', id, decision: 'allow' }));
+    }
+    this.setState({ pendingPermission: null });
+  };
+
+  handlePermissionAllowSession = (id) => {
+    const ws = this._inputWs;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'perm-hook-answer', id, decision: 'allow', allowSession: true }));
+    }
+    this.setState({ pendingPermission: null });
+  };
+
+  handlePermissionDeny = (id) => {
+    const ws = this._inputWs;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'perm-hook-answer', id, decision: 'deny' }));
+    }
+    this.setState({ pendingPermission: null });
+  };
+
+  handlePlanApprove = (id) => {
+    const ws = this._inputWs;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'sdk-plan-answer', id, approve: true }));
+    }
+    this.setState({ pendingPlanApproval: null });
+  };
+
+  handlePlanReject = (id, feedback) => {
+    const ws = this._inputWs;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'sdk-plan-answer', id, approve: false, feedback: feedback || '' }));
+    }
+    this.setState({ pendingPlanApproval: null });
+  };
+
   handlePlanFeedbackSubmit = (number, text) => {
     const ws = this._inputWs;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -1385,6 +1594,33 @@ class ChatView extends React.Component {
       this.setState(prev => ({
         localAskAnswers: { ...(prev.localAskAnswers || {}), [askId]: localAnswers },
       }));
+    }
+
+    // SDK 模式：直接通过 WS 发送结构化答案，无需 hook bridge 或 PTY
+    if (this.props.sdkMode) {
+      const resolvedId = askId || this._sdkAskId;
+      if (!resolvedId) return; // 已被其他设备回答，忽略重复提交
+      const ws = this._inputWs;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        // 构造 answers 对象: { questionText: selectedLabel }
+        const sdkAnswers = {};
+        const qs = this._askHookQuestions || questions;
+        for (const answer of answers) {
+          const q = qs?.[answer.questionIndex];
+          if (!q) continue;
+          if (answer.type === 'other') {
+            sdkAnswers[q.question] = answer.text;
+          } else if (answer.type === 'multi') {
+            const labels = answer.selectedIndices.map(i => (q.options || [])[i]?.label).filter(Boolean);
+            sdkAnswers[q.question] = labels.join(', ');
+          } else {
+            sdkAnswers[q.question] = (q.options || [])[answer.optionIndex]?.label || '';
+          }
+        }
+        ws.send(JSON.stringify({ type: 'sdk-ask-answer', id: resolvedId, answers: sdkAnswers }));
+        this._sdkAskId = null;
+      }
+      return;
     }
 
     // Hook bridge path: submit structured JSON instead of PTY simulation
@@ -1655,19 +1891,28 @@ class ChatView extends React.Component {
   handleInputSend = () => {
     const textarea = this._inputRef.current;
     if (!textarea) return;
-    const text = textarea.value.trim();
+    const userText = textarea.value.trim();
+    // 拼接 pendingImages 路径到消息前面（发送时才注入，支持用户删除后不发）
+    const imagePaths = this.state.pendingImages.map(img => `"${img.path.replace(/"/g, '')}"`).join(' ');
+    const text = imagePaths ? (userText ? `${imagePaths} ${userText}` : imagePaths) : userText;
     if (!text) return;
     if (this._inputWs && this._inputWs.readyState === WebSocket.OPEN) {
-      // Claude Code TUI 逐字符处理输入，需要先发文字再单独发回车
-      this._inputWs.send(JSON.stringify({ type: 'input', data: text }));
-      setTimeout(() => {
-        if (this._inputWs && this._inputWs.readyState === WebSocket.OPEN) {
-          this._inputWs.send(JSON.stringify({ type: 'input', data: '\r' }));
-        }
-      }, 50);
+      if (this.props.sdkMode) {
+        // SDK 模式：发送结构化用户消息
+        this._inputWs.send(JSON.stringify({ type: 'sdk-user-message', text }));
+      } else {
+        // PTY 模式：Claude Code TUI 逐字符处理输入，需要先发文字再单独发回车
+        this._inputWs.send(JSON.stringify({ type: 'input', data: text }));
+        setTimeout(() => {
+          if (this._inputWs && this._inputWs.readyState === WebSocket.OPEN) {
+            this._inputWs.send(JSON.stringify({ type: 'input', data: '\r' }));
+          }
+        }, 50);
+      }
       textarea.value = '';
       textarea.style.height = 'auto';
-      this.setState({ inputEmpty: true, pendingInput: text, inputSuggestion: null }, () => this.scrollToBottom());
+      this._clearPendingImages();
+      this.setState({ inputEmpty: true, pendingInput: userText || imagePaths, inputSuggestion: null }, () => this.scrollToBottom());
     }
   };
 
@@ -1713,12 +1958,10 @@ class ChatView extends React.Component {
   };
 
   handleUploadPath = (path) => {
-    const quoted = `"${path}"`;
-    const textarea = this._inputRef.current;
-    if (textarea) {
-      textarea.value = (textarea.value ? textarea.value + ' ' : '') + quoted;
-      textarea.dispatchEvent(new Event('input', { bubbles: true }));
-      this.setState({ inputEmpty: false });
+    // 不插入 textarea，不立即注入 PTY — 仅添加到预览条，发送时再拼接路径
+    this._addPendingImage(path, 'chat');
+    if (this._inputWs && this._inputWs.readyState === WebSocket.OPEN) {
+      this._inputWs.send(JSON.stringify({ type: 'image-upload-notify', path, source: 'chat' }));
     }
   };
 
@@ -2146,6 +2389,7 @@ class ChatView extends React.Component {
             initialTopMostItemIndex={Math.max(0, visible.length - 1)}
             followOutput={this.state.stickyBottom ? 'smooth' : false}
             atBottomStateChange={(atBottom) => {
+              if (this._stickyScrollLock) return;
               if (atBottom !== this.state.stickyBottom) this.setState({ stickyBottom: atBottom });
             }}
             atBottomThreshold={60}
@@ -2233,7 +2477,7 @@ class ChatView extends React.Component {
             {messageList}
           </div>
         </div>
-        <TeamModal session={this.state.teamModalSession} requests={this.props.requests} mainAgentSessions={this.props.mainAgentSessions} collapseToolResults={this.props.collapseToolResults} expandThinking={this.props.expandThinking} userProfile={this.props.userProfile} onViewRequest={this.props.onViewRequest} onClose={() => this.setState({ teamModalSession: null })} />
+        <TeamModal session={this.state.teamModalSession} requests={this.props.requests} mainAgentSessions={this.props.mainAgentSessions} collapseToolResults={this.props.collapseToolResults} expandThinking={this.props.expandThinking} showFullToolContent={this.props.showFullToolContent} userProfile={this.props.userProfile} onViewRequest={this.props.onViewRequest} onClose={() => this.setState({ teamModalSession: null })} />
       </>);
     }
 
@@ -2362,7 +2606,7 @@ class ChatView extends React.Component {
                     editorSession={!!this.state.editorSessionId}
                     onClose={() => {
                       if (this.state.editorSessionId) {
-                        fetch('/api/editor-done', {
+                        fetch(apiUrl('/api/editor-done'), {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ sessionId: this.state.editorSessionId }),
@@ -2379,7 +2623,7 @@ class ChatView extends React.Component {
                     editorSession={!!this.state.editorSessionId}
                     onClose={() => {
                       if (this.state.editorSessionId) {
-                        fetch('/api/editor-done', {
+                        fetch(apiUrl('/api/editor-done'), {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ sessionId: this.state.editorSessionId }),
@@ -2392,6 +2636,28 @@ class ChatView extends React.Component {
               </div>
             )}
             {messageList}
+            {/* 如果父组件处理全局渲染（移动端），跳过本地渲染 */}
+            {!this.props.onPendingPermission && (
+              <ToolApprovalPanel
+                toolName={this.state.pendingPermission?.toolName}
+                toolInput={this.state.pendingPermission?.input}
+                requestId={this.state.pendingPermission?.id}
+                onAllow={this.handlePermissionAllow}
+                onAllowSession={this.props.sdkMode ? this.handlePermissionAllowSession : null}
+                onDeny={this.handlePermissionDeny}
+                visible={!!this.state.pendingPermission}
+              />
+            )}
+            {!this.props.onPendingPlanApproval && this.state.pendingPlanApproval && (
+              <ToolApprovalPanel
+                toolName="ExitPlanMode"
+                toolInput={this.state.pendingPlanApproval.input}
+                requestId={this.state.pendingPlanApproval.id}
+                onAllow={this.handlePlanApprove}
+                onDeny={(id) => this.handlePlanReject(id, '')}
+                visible={true}
+              />
+            )}
             <ChatInputBar
               inputRef={this._inputRef}
               inputEmpty={this.state.inputEmpty}
@@ -2406,10 +2672,12 @@ class ChatView extends React.Component {
               onPresetSend={this.handlePresetSend}
               isStreaming={this.props.isStreaming}
               streamingFading={this.state.streamingFading}
+              pendingImages={this.state.pendingImages}
+              onRemovePendingImage={this._removePendingImage}
             />
             </div>
           </div>
-          {cliMode && onToggleTerminal && (
+          {cliMode && !this.props.sdkMode && onToggleTerminal && (
             <div
               className={styles.terminalToggle}
               onClick={onToggleTerminal}
@@ -2441,13 +2709,15 @@ class ChatView extends React.Component {
                   if (this._inputWs && this._inputWs.readyState === WebSocket.OPEN) {
                     this._inputWs.send(JSON.stringify({ type: 'input', data: quoted }));
                   }
+                  // 不加入 pendingImages — 终端上传已直接注入 PTY，不需要在聊天预览条"pending"
+                  // 跨设备同步由 TerminalPanel 的 image-upload-notify WS 消息处理
                 }} />
               </div>
             </>
           )}
         </div>
       </div>
-      <TeamModal session={this.state.teamModalSession} requests={this.props.requests} mainAgentSessions={this.props.mainAgentSessions} collapseToolResults={this.props.collapseToolResults} expandThinking={this.props.expandThinking} userProfile={this.props.userProfile} onViewRequest={this.props.onViewRequest} onClose={() => this.setState({ teamModalSession: null })} />
+      <TeamModal session={this.state.teamModalSession} requests={this.props.requests} mainAgentSessions={this.props.mainAgentSessions} collapseToolResults={this.props.collapseToolResults} expandThinking={this.props.expandThinking} showFullToolContent={this.props.showFullToolContent} userProfile={this.props.userProfile} onViewRequest={this.props.onViewRequest} onClose={() => this.setState({ teamModalSession: null })} />
     </>);
   }
 }

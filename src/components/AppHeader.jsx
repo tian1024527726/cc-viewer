@@ -45,7 +45,7 @@ const countryToFlag = (code) => {
 class AppHeader extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { countdownText: '', countryFlag: null, countryInfo: null, promptModalVisible: false, promptData: [], promptViewMode: 'original', settingsDrawerVisible: false, globalSettingsVisible: false, projectStatsVisible: false, projectStats: null, projectStatsLoading: false, localUrl: '', pluginModalVisible: false, pluginsList: [], pluginsDir: '', deleteConfirmVisible: false, deleteTarget: null, processModalVisible: false, processList: [], processLoading: false, logoDropdownOpen: false, cacheHighlightIdx: null, cacheHighlightFading: false, cdnModalVisible: false, cdnUrl: '', cdnLoading: false, calibrationModel: (v => CALIBRATION_MODELS.some(m => m.value === v) ? v : 'auto')(localStorage.getItem('ccv_calibrationModel') || 'auto'), proxyModalVisible: false, editingProxy: null, editForm: { name: '', baseURL: '', apiKey: '', models: '', activeModel: '' } };
+    this.state = { countdownText: '', countryFlag: null, countryInfo: null, promptModalVisible: false, promptData: [], promptViewMode: 'original', settingsDrawerVisible: false, globalSettingsVisible: false, projectStatsVisible: false, projectStats: null, projectStatsLoading: false, localUrl: '', pluginModalVisible: false, pluginsList: [], pluginsDir: '', deleteConfirmVisible: false, deleteTarget: null, processModalVisible: false, processList: [], processLoading: false, logoDropdownOpen: false, cacheHighlightIdx: null, cacheHighlightFading: false, cdnModalVisible: false, cdnUrl: '', cdnLoading: false, calibrationModel: (v => CALIBRATION_MODELS.some(m => m.value === v) ? v : 'auto')(localStorage.getItem('ccv_calibrationModel') || 'auto'), proxyModalVisible: false, editingProxy: null, editForm: { name: '', baseURL: '', apiKey: '', models: '', activeModel: '' }, logDirDraft: null };
     this._rafId = null;
     this._expiredTimer = null;
     this.updateCountdown = this.updateCountdown.bind(this);
@@ -81,8 +81,10 @@ class AppHeader extends React.Component {
       nextProps.projectName !== this.props.projectName ||
       nextProps.collapseToolResults !== this.props.collapseToolResults ||
       nextProps.expandThinking !== this.props.expandThinking ||
+      nextProps.showFullToolContent !== this.props.showFullToolContent ||
       nextProps.expandDiff !== this.props.expandDiff ||
       nextProps.filterIrrelevant !== this.props.filterIrrelevant ||
+      nextProps.logDir !== this.props.logDir ||
       nextProps.cliMode !== this.props.cliMode ||
       nextProps.contextWindow !== this.props.contextWindow ||
       nextProps.serverCachedContent !== this.props.serverCachedContent ||
@@ -1171,7 +1173,7 @@ class AppHeader extends React.Component {
   }
 
   render() {
-    const { requestCount, requests = [], viewMode, cacheType, onToggleViewMode, onImportLocalLogs, onLangChange, isLocalLog, localLogFile, projectName, collapseToolResults, onCollapseToolResultsChange, expandThinking, onExpandThinkingChange, expandDiff, onExpandDiffChange, filterIrrelevant, onFilterIrrelevantChange, updateInfo, onDismissUpdate, cliMode, terminalVisible, onToggleTerminal, onReturnToWorkspaces, contextWindow, serverCachedContent, resumeAutoChoice, onResumeAutoChoiceToggle, onResumeAutoChoiceChange } = this.props;
+    const { requestCount, requests = [], viewMode, cacheType, onToggleViewMode, onImportLocalLogs, onLangChange, isLocalLog, localLogFile, projectName, collapseToolResults, onCollapseToolResultsChange, expandThinking, onExpandThinkingChange, showFullToolContent, onShowFullToolContentChange, expandDiff, onExpandDiffChange, filterIrrelevant, onFilterIrrelevantChange, logDir, onLogDirChange, updateInfo, onDismissUpdate, cliMode, terminalVisible, onToggleTerminal, onReturnToWorkspaces, contextWindow, serverCachedContent, resumeAutoChoice, onResumeAutoChoiceToggle, onResumeAutoChoiceChange } = this.props;
     const { countdownText } = this.state;
 
     const menuItems = [
@@ -1545,6 +1547,13 @@ class AppHeader extends React.Component {
                 onChange={(checked) => onExpandThinkingChange && onExpandThinkingChange(checked)}
               />
             </div>
+            <div className={styles.settingsItem}>
+              <span className={styles.settingsLabel}>{t('ui.showFullToolContent')}</span>
+              <Switch
+                checked={!!showFullToolContent}
+                onChange={(checked) => onShowFullToolContentChange && onShowFullToolContentChange(checked)}
+              />
+            </div>
           </div>
           <div className={styles.settingsGroupBox}>
             <div className={styles.settingsGroupTitle}>{t('ui.userPreferences')}</div>
@@ -1570,7 +1579,7 @@ class AppHeader extends React.Component {
           </div>
         </Drawer>
         <Drawer
-          title={t('ui.globalSettings')}
+          title={<span>{t('ui.globalSettings')} <ConceptHelp doc="GlobalSettings" /></span>}
           placement="left"
           width={400}
           open={this.state.globalSettingsVisible}
@@ -1590,6 +1599,24 @@ class AppHeader extends React.Component {
               onChange={(checked) => onExpandDiffChange && onExpandDiffChange(checked)}
             />
           </div>
+          <div className={styles.settingsDivider} />
+          <div className={styles.settingsLabel}>{t('ui.logDirTitle')}</div>
+          <Input
+            className={styles.logDirInput}
+            value={this.state.logDirDraft ?? logDir}
+            onChange={(e) => this.setState({ logDirDraft: e.target.value })}
+            onBlur={() => {
+              const val = this.state.logDirDraft;
+              if (val != null && val !== logDir) onLogDirChange?.(val);
+              this.setState({ logDirDraft: null });
+            }}
+            onPressEnter={() => {
+              const val = this.state.logDirDraft;
+              if (val != null && val !== logDir) onLogDirChange?.(val);
+              this.setState({ logDirDraft: null });
+            }}
+            placeholder="~/.claude/cc-viewer"
+          />
         </Drawer>
         <Drawer
           title={<span><BarChartOutlined className={styles.titleIcon} />{t('ui.projectStats')}</span>}

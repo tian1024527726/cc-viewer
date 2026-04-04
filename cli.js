@@ -256,7 +256,7 @@ async function runProxyCommand(args) {
   }
 }
 
-function ensureAskHook() {
+function ensureHooks() {
   try {
     const claudeDir = resolve(homedir(), '.claude');
     const settingsPath = resolve(claudeDir, 'settings.json');
@@ -266,28 +266,69 @@ function ensureAskHook() {
       return;
     }
 
-    const askBridgePath = resolve(__dirname, 'lib', 'ask-bridge.js');
-    const expectedCmd = `node "${askBridgePath}"`;
-
     if (!settings.hooks) settings.hooks = {};
     if (!Array.isArray(settings.hooks.PreToolUse)) settings.hooks.PreToolUse = [];
 
-    const existing = settings.hooks.PreToolUse.find(h => h.matcher === 'AskUserQuestion');
-    if (existing) {
-      const cmd = existing.hooks?.[0]?.command || '';
-      if (cmd === expectedCmd) return;
-      existing.hooks = [{ type: 'command', command: expectedCmd }];
+    let changed = false;
+
+    // AskUserQuestion hook → ask-bridge.js
+    const askBridgePath = resolve(__dirname, 'lib', 'ask-bridge.js');
+    const askCmd = `node "${askBridgePath}"`;
+    const askExisting = settings.hooks.PreToolUse.find(h => h.matcher === 'AskUserQuestion');
+    if (askExisting) {
+      if ((askExisting.hooks?.[0]?.command || '') !== askCmd) {
+        askExisting.hooks = [{ type: 'command', command: askCmd }];
+        changed = true;
+      }
     } else {
       settings.hooks.PreToolUse.push({
         matcher: 'AskUserQuestion',
-        hooks: [{ type: 'command', command: expectedCmd }]
+        hooks: [{ type: 'command', command: askCmd }]
       });
+      changed = true;
     }
 
-    mkdirSync(claudeDir, { recursive: true });
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    // Permission approval hook → perm-bridge.js (matcher: "" = match all tools)
+    const permBridgePath = resolve(__dirname, 'lib', 'perm-bridge.js');
+    const permCmd = `node "${permBridgePath}"`;
+    const permMatcher = '';
+    // Clean up legacy entries: old narrow matchers, null matchers (invalid JSON),
+    // and conflicting Bash-specific hooks (git guard now merged into perm-bridge.js)
+    for (let i = settings.hooks.PreToolUse.length - 1; i >= 0; i--) {
+      const h = settings.hooks.PreToolUse[i];
+      const cmd = h.hooks?.[0]?.command || '';
+      if (cmd.includes('perm-bridge.js') && h.matcher !== permMatcher) {
+        settings.hooks.PreToolUse.splice(i, 1);
+        changed = true;
+      } else if ((h.matcher === null || h.matcher === undefined) && cmd.includes('perm-bridge.js')) {
+        settings.hooks.PreToolUse.splice(i, 1);
+        changed = true;
+      } else if (h.matcher === 'Bash' && cmd.includes('grep') && /git|npm/.test(cmd)) {
+        // Remove legacy standalone Bash git/npm guard — now handled inside perm-bridge.js
+        settings.hooks.PreToolUse.splice(i, 1);
+        changed = true;
+      }
+    }
+    const permExisting = settings.hooks.PreToolUse.find(h => h.matcher === permMatcher);
+    if (permExisting) {
+      if ((permExisting.hooks?.[0]?.command || '') !== permCmd) {
+        permExisting.hooks = [{ type: 'command', command: permCmd }];
+        changed = true;
+      }
+    } else {
+      settings.hooks.PreToolUse.push({
+        matcher: permMatcher,
+        hooks: [{ type: 'command', command: permCmd }]
+      });
+      changed = true;
+    }
+
+    if (changed) {
+      mkdirSync(claudeDir, { recursive: true });
+      writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    }
   } catch (err) {
-    console.warn('[CC Viewer] Failed to ensure AskUserQuestion hook:', err.message);
+    console.warn('[CC Viewer] Failed to ensure hooks:', err.message);
   }
 }
 
@@ -314,7 +355,7 @@ async function runCliMode(extraClaudeArgs = [], cwd) {
   registerWorkspace(workingDir);
 
   // 确保 AskUserQuestion hook 已注册到 ~/.claude/settings.json
-  ensureAskHook();
+  ensureHooks();
 
   // 2. 设置 CLI 模式标记（必须在 import proxy.js 之前，
   //    因为 proxy.js → interceptor.js 可能触发 server.js 加载，
@@ -322,6 +363,10 @@ async function runCliMode(extraClaudeArgs = [], cwd) {
   process.env.CCV_CLI_MODE = '1';
   process.env.CCV_PROJECT_DIR = workingDir;
   process.env.CCV_PROXY_MODE = '1';
+  // 当 --dangerously-skip-permissions 生效时，通知 perm-bridge 不要拦截
+  if (extraClaudeArgs.includes('--dangerously-skip-permissions')) {
+    process.env.CCV_BYPASS_PERMISSIONS = '1';
+  }
 
   // 1. 启动代理
   const { startProxy } = await import('./proxy.js');
@@ -373,6 +418,93 @@ async function runCliMode(extraClaudeArgs = [], cwd) {
   // 5. 注册退出处理
   const cleanup = () => {
     killPty();
+    serverMod.stopViewer().finally(() => process.exit());
+  };
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
+}
+
+async function runSdkMode(extraClaudeArgs = [], cwd) {
+  // 检查 SDK 是否可用
+  let sdkManager;
+  try {
+    sdkManager = await import('./lib/sdk-manager.js');
+    if (!sdkManager.isSdkAvailable()) throw new Error('query not available');
+  } catch {
+    console.warn('[CC Viewer] Agent SDK not available, falling back to PTY mode (-C)');
+    return runCliMode(extraClaudeArgs, cwd);
+  }
+
+  const workingDir = cwd || process.cwd();
+
+  // 注册工作区
+  const { registerWorkspace } = await import('./workspace-registry.js');
+  registerWorkspace(workingDir);
+
+  // 不需要 ensureHooks — SDK canUseTool 处理 AskUserQuestion + 权限
+  // 不需要 proxy — SDK 直接管理 API 通信
+
+  // 设置环境标记（必须在 import server.js 之前）
+  process.env.CCV_CLI_MODE = '1';
+  process.env.CCV_SDK_MODE = '1';
+  process.env.CCV_PROJECT_DIR = workingDir;
+  process.env.CCV_PROXY_MODE = '1'; // 使 interceptor.js 惰性
+
+  // 启动 HTTP 服务器
+  const serverMod = await import('./server.js');
+
+  await new Promise(resolve => {
+    const check = () => {
+      const port = serverMod.getPort();
+      if (port) resolve(port);
+      else setTimeout(check, 100);
+    };
+    setTimeout(check, 200);
+  });
+
+  const port = serverMod.getPort();
+  const { basename } = await import('node:path');
+
+  // 解析 permission mode from CLI args
+  // --d / --dangerously-skip-permissions → bypassPermissions（跳过所有权限检查）
+  // --ad / --allow-dangerously-skip-permissions → default（只是允许用户后续切换，不立即跳过）
+  let permissionMode = 'default';
+  if (extraClaudeArgs.includes('--dangerously-skip-permissions')) {
+    permissionMode = 'bypassPermissions';
+  }
+
+  // 初始化 SDK 会话
+  sdkManager.initSdkSession(workingDir, basename(workingDir), {
+    onEntry: (entry) => serverMod.pushSdkEntry(entry),
+    onStreamingStatus: (data) => serverMod.setSdkStreamingState(data),
+    broadcastWs: (msg) => serverMod.broadcastWsMessage(msg),
+    permissionMode,
+  });
+
+  // 注册 SDK 回调到 server.js（WS 消息路由用）
+  serverMod.setSdkResolveApproval(sdkManager.resolveApproval);
+  serverMod.setSdkSendUserMessage(sdkManager.sendUserMessage);
+
+  // 自动打开浏览器
+  const protocol = serverMod.getProtocol();
+  const url = `${protocol}://127.0.0.1:${port}`;
+  try {
+    const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+    const { execSync } = await import('node:child_process');
+    execSync(`${cmd} ${url}`, { stdio: 'ignore', timeout: 5000 });
+  } catch {}
+
+  console.log(`CC Viewer (SDK mode):`);
+  console.log(`  ➜ Local:   ${url}`);
+  const _lanIps = serverMod.getAllLocalIps();
+  const _token = serverMod.getAccessToken();
+  for (const _ip of _lanIps) {
+    console.log(`  ➜ Network: ${protocol}://${_ip}:${port}?token=${_token}`);
+  }
+
+  // 注册退出处理
+  const cleanup = () => {
+    sdkManager.stopSession();
     serverMod.stopViewer().finally(() => process.exit());
   };
   process.on('SIGINT', cleanup);
@@ -617,9 +749,16 @@ if (isLogger) {
 
 if (args[0] === 'run') {
   runProxyCommand(args);
+} else if (args.includes('-SDK') || args.includes('--sdk')) {
+  // SDK 模式（显式 -SDK 切换）
+  const claudeArgs = args.filter(a => a !== '-SDK' && a !== '--sdk')
+    .map(a => a === '--d' ? '--dangerously-skip-permissions' : a === '--ad' ? '--allow-dangerously-skip-permissions' : a);
+  runSdkMode(claudeArgs, process.cwd()).catch(err => {
+    console.error('SDK mode error:', err);
+    process.exit(1);
+  });
 } else {
-  // 默认行为：所有参数透传给 claude（通过 PTY + Web Viewer）
-  // 展开快捷方式：--d → --dangerously-skip-permissions, --ad → --allow-dangerously-skip-permissions
+  // PTY 模式（默认）
   const claudeArgs = args.map(a => a === '--d' ? '--dangerously-skip-permissions' : a === '--ad' ? '--allow-dangerously-skip-permissions' : a);
   runCliMode(claudeArgs, process.cwd()).catch(err => {
     console.error('CLI mode error:', err);

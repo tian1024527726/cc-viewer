@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Modal, Spin, ConfigProvider, theme } from 'antd';
 import { renderMarkdown } from '../utils/markdown';
+import { apiUrl } from '../utils/apiUrl';
 import { getLang } from '../i18n';
 import { isMobile } from '../env';
 import styles from './ConceptHelp.module.css';
@@ -15,7 +16,7 @@ const KNOWN_DOCS = new Set([
   'Tool-EnterPlanMode', 'Tool-ExitPlanMode',
   'Tool-AskUserQuestion', 'Tool-Skill',
   'Tool-getDiagnostics', 'Tool-executeCode', 'Tool-EnterWorktree',
-  'MainAgent', 'Teammate', 'BodyFields', 'ResponseFields', 'Tools', 'ToolsFirst', 'CacheRebuild', 'BodyDiffJSON', 'TranslateContextPollution', 'KVCacheContent', 'ProxySwitch',
+  'MainAgent', 'Teammate', 'BodyFields', 'ResponseFields', 'Tools', 'ToolsFirst', 'CacheRebuild', 'BodyDiffJSON', 'TranslateContextPollution', 'KVCacheContent', 'ProxySwitch', 'GlobalSettings',
 ]);
 
 export default function ConceptHelp({ doc, zIndex }) {
@@ -36,7 +37,7 @@ export default function ConceptHelp({ doc, zIndex }) {
     let md = null;
 
     try {
-      const res = await fetch(`/api/concept?lang=${lang}&doc=${encodeURIComponent(doc)}`);
+      const res = await fetch(apiUrl(`/api/concept?lang=${lang}&doc=${encodeURIComponent(doc)}`));
       if (res.ok) {
         md = await res.text();
       }
@@ -65,7 +66,11 @@ export default function ConceptHelp({ doc, zIndex }) {
 
   return (
     <>
-      <span className={styles.helpBtn} onClick={(e) => { e.stopPropagation(); loadDoc(); }}>?</span>
+      <span className={styles.helpBtn}
+        onClick={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); loadDoc(); }}
+        onMouseDown={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
+        onPointerDown={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
+      >?</span>
       <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#1668dc', colorBgContainer: '#111', colorBgLayout: '#0a0a0a', colorBgElevated: '#1e1e1e', colorBorder: '#2a2a2a' } }}>
         <Modal
           title={title}

@@ -1,10 +1,11 @@
 import React from 'react';
-import { Collapse, Typography, Radio, Checkbox, Input, Button, Tooltip, message } from 'antd';
+import { Collapse, Typography, Radio, Checkbox, Input, Button, Tooltip, Popover, message } from 'antd';
 import { renderMarkdown } from '../utils/markdown';
 import { escapeHtml, truncateText, getSvgAvatar } from '../utils/helpers';
 import { getTeammateAvatar } from '../utils/teammateAvatars';
 import { renderAssistantText } from '../utils/systemTags';
 import { apiUrl } from '../utils/apiUrl';
+import { isMobile } from '../env';
 import AskQuestionForm from './AskQuestionForm';
 import { t } from '../i18n';
 import { isPlanApprovalPrompt } from '../utils/promptClassifier';
@@ -60,7 +61,7 @@ class ChatMessage extends React.Component {
     // 逐字段浅比较核心 prop，避免 inline {} 和 computed values 导致的无效重渲染
     return p.role !== n.role || p.content !== n.content || p.text !== n.text ||
       p.timestamp !== n.timestamp || p.highlight !== n.highlight ||
-      p.collapseToolResults !== n.collapseToolResults || p.expandThinking !== n.expandThinking ||
+      p.collapseToolResults !== n.collapseToolResults || p.expandThinking !== n.expandThinking || p.showFullToolContent !== n.showFullToolContent ||
       p.showThinkingSummaries !== n.showThinkingSummaries ||
       p.toolResultMap !== n.toolResultMap || p.readContentMap !== n.readContentMap ||
       p.editSnapshotMap !== n.editSnapshotMap || p.askAnswerMap !== n.askAnswerMap ||
@@ -283,12 +284,9 @@ class ChatMessage extends React.Component {
       const fp = inp.file_path || '';
       const content = inp.content || '';
       const lines = content.split('\n');
-      const preview = lines.length > 20
-        ? lines.slice(0, 20).join('\n') + `\n... (${lines.length} lines total)`
-        : content;
       return box(
         <>Write: {pathTag(fp)} <span className={styles.secondarySpan}>({lines.length} lines)</span></>,
-        codePre(preview, '#c9d1d9')
+        codePre(content, '#c9d1d9')
       );
     }
 
@@ -561,7 +559,7 @@ class ChatMessage extends React.Component {
     const items = keys.map(k => {
       const v = inp[k];
       const vs = typeof v === 'string' ? v : JSON.stringify(v);
-      const display = vs.length > 200 ? vs.substring(0, 200) + '...' : vs;
+      const display = (tu.name === 'Agent' || tu.name === 'TaskCreate' || vs.length <= 200) ? vs : vs.substring(0, 200) + '...';
       return (
         <div key={k} className={styles.kvItem}>
           <span className={styles.kvKey}>{k}: </span>
@@ -756,7 +754,7 @@ class ChatMessage extends React.Component {
                       onClick={async (e) => {
                         e.stopPropagation();
                         try {
-                          const res = await fetch('/api/claude-settings', {
+                          const res = await fetch(apiUrl('/api/claude-settings'), {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ showThinkingSummaries: true }),
@@ -790,8 +788,36 @@ class ChatMessage extends React.Component {
       }
     });
 
+    const simplify = !this.props.showFullToolContent;
+    let simplifiedLabelAdded = false;
     toolUseBlocks.forEach((tu, tuIdx) => {
-      innerContent.push(this.renderToolCall(tu));
+      const isFullDisplayTool = tu.name === 'Edit' || tu.name === 'Write' || tu.name === 'EnterPlanMode' || tu.name === 'ExitPlanMode' || tu.name === 'AskUserQuestion' || tu.name === 'Agent' || tu.name === 'TaskCreate';
+      if (simplify && !isFullDisplayTool) {
+        // 简化模式：首个标签前加 "使用工具: " 标签
+        if (!simplifiedLabelAdded) {
+          simplifiedLabelAdded = true;
+          innerContent.push(
+            <span key={`stag-label-${tuIdx}`} className={styles.simplifiedToolLabel}>{t('ui.toolsUsed')}</span>
+          );
+        }
+        // 简化模式：非 Edit/Write 工具只显示标签，hover/click 显示完整内容
+        // 移动端 zoom:0.6 导致 Popover 坐标偏移，需 getPopupContainer 渲染在缩放容器内
+        innerContent.push(
+          <Popover
+            key={`stag-${tu.id}`}
+            placement="top"
+            overlayClassName="simplifiedToolPopover"
+            content={<div className={styles.simplifiedToolPopoverContent}>{this.renderToolCall(tu)}</div>}
+            mouseEnterDelay={0.3}
+            {...(isMobile ? { trigger: 'click', getPopupContainer: (node) => node.parentElement } : {})}
+          >
+            <span className={styles.simplifiedToolTag}>{tu.name}</span>
+          </Popover>
+        );
+      } else {
+        simplifiedLabelAdded = false; // 遇到完整展示工具后重置，下一组简化标签前重新显示 label
+        innerContent.push(this.renderToolCall(tu));
+      }
 
       const tr = toolResultMap[tu.id];
 
@@ -809,6 +835,20 @@ class ChatMessage extends React.Component {
         const approval = planApprovalMap[tu.id];
         if (tu.name === 'ExitPlanMode' && approval && approval.status === 'approved' && approval.planContent) {
           // skip tool result — plan content already shown
+        } else if (simplify) {
+          // 简化模式：仅显示权限拒绝，隐藏其他 tool_result
+          if (tr.isPermissionDenied) {
+            innerContent.push(
+              <React.Fragment key={`tr-denied-${tu.id}`}>
+                <div className={`${styles.dangerApprovalBox} ${styles.dangerApprovalBoxDenied}`}>
+                  <span className={styles.dangerDeniedBadge}>✗ {t('ui.dangerDenied')}</span>
+                  {tr.resultText && (
+                    <div className={styles.dangerDeniedDetail}>{tr.resultText}</div>
+                  )}
+                </div>
+              </React.Fragment>
+            );
+          }
         } else {
           if (tr.isPermissionDenied) {
             innerContent.push(
