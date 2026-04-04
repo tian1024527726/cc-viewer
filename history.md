@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.99 (2026-04-05)
+
+- Fix: git commit/push and npm publish force Web UI approval even in `--d` (bypass permissions) mode
+
 ## 1.6.98 (2026-04-05)
 
 - Feat: global settings log directory config — runtime `setLogDir()` with preferences UI, dynamic `getPrefsFile()`/`getPluginsDir()`/`getWorkspacesFile()`
