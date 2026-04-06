@@ -25,7 +25,7 @@ function TeamButton({ requests, onOpenSession, navBtnClass }) {
       {teamSessions.map((team, i) => {
         const time = team.startTime ? new Date(team.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
         const status = team.endTime ? (team._inferredEnd ? '⏱' : '✓') : '●';
-        const statusColor = team.endTime ? (team._inferredEnd ? '#888' : '#52c41a') : '#faad14';
+        const statusColor = team.endTime ? (team._inferredEnd ? 'var(--text-tertiary)' : 'var(--color-success)') : 'var(--color-warning-light)';
         return (
           <div key={i} className={styles.teamPopoverItem} onClick={() => onOpenSession(team)}>
             <span className={styles.teamPopoverStatus} style={{ color: statusColor }}>{status}</span>
@@ -39,7 +39,7 @@ function TeamButton({ requests, onOpenSession, navBtnClass }) {
   );
   const hasActiveTeam = teamSessions.some(s => !s.endTime || s._inferredEnd);
   return (
-    <Popover content={content} trigger="hover" placement="rightTop" overlayInnerStyle={{ background: '#1e1e1e', border: '1px solid #333', padding: 0 }}>
+    <Popover content={content} trigger="hover" placement="rightTop" overlayInnerStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-light)', padding: 0 }}>
       <button className={`${navBtnClass || ''} ${styles.teamBtnRelative}`} title={t('ui.teamSessions')}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -123,7 +123,7 @@ function TeamGantt({ teamAgents, teamTotalStart, teamTotalEnd, leadSegments, gan
             <div className={`${styles.teamGanttLabel} ${styles.ganttLabelLead}`}>team-lead</div>
             <div className={styles.teamGanttTrack}>
               {leadSegments && leadSegments.map((seg, i) => {
-                const bgColor = seg.label === 'thinking' ? '#722ed1' : seg.label === 'report-received' ? '#52c41a' : '#196ae1';
+                const bgColor = seg.label === 'thinking' ? 'var(--color-code-purple)' : seg.label === 'report-received' ? 'var(--color-success)' : 'var(--color-primary)';
                 const op = seg.label === 'idle' ? 0.15 : seg.label === 'text' ? 0.5 : seg.label === 'thinking' ? 0.4 : seg.label === 'report-received' ? 0.6 : 0.7;
                 return <div key={`b${i}`} className={styles.teamGanttBar} title={seg.label} style={{
                   left: pct(seg.start) + '%', width: widthPct(seg.start, seg.end) + '%',
@@ -132,7 +132,7 @@ function TeamGantt({ teamAgents, teamTotalStart, teamTotalEnd, leadSegments, gan
               })}
               {leadSegments && leadSegments.filter(s => s.label !== 'idle').map((seg, i) => {
                 const tips = { create: 'Team Created', tasks: 'Tasks Created', spawn: 'Agents Spawned', msg: 'SendMessage', cleanup: 'Team Cleanup', text: 'Status Update', thinking: 'Thinking...', 'report-received': 'Report Received' };
-                const dColor = seg.label === 'thinking' ? '#722ed1' : seg.label === 'report-received' ? '#52c41a' : '#196ae1';
+                const dColor = seg.label === 'thinking' ? 'var(--color-code-purple)' : seg.label === 'report-received' ? 'var(--color-success)' : 'var(--color-primary)';
                 return <Tooltip key={`d${i}`} title={tips[seg.label] || seg.label}><span className={styles.teamGanttDiamond} style={{ left: pct(seg.start) + '%', color: dColor }}>◆</span></Tooltip>;
               })}
             </div>
@@ -177,10 +177,10 @@ function TeamGantt({ teamAgents, teamTotalStart, teamTotalEnd, leadSegments, gan
               const agentY = (ai + 1) * rowH + rowH / 2;
               if (ag.doneTime) {
                 const doneMs = new Date(ag.doneTime).getTime();
-                arrows.push({ key: `${ai}-done`, xPct: pct(doneMs), fromY: agentY, toY: leadY, color: '#faad14' });
+                arrows.push({ key: `${ai}-done`, xPct: pct(doneMs), fromY: agentY, toY: leadY, color: 'var(--color-warning-light)' });
               }
               ag.events.filter(ev => ev.label === 'report').forEach((ev, ei) => {
-                arrows.push({ key: `${ai}-rpt-${ei}`, xPct: pct(ev.ts), fromY: agentY, toY: leadY, color: '#52c41a' });
+                arrows.push({ key: `${ai}-rpt-${ei}`, xPct: pct(ev.ts), fromY: agentY, toY: leadY, color: 'var(--color-success)' });
               });
             });
             if (arrows.length === 0) return null;
@@ -189,10 +189,10 @@ function TeamGantt({ teamAgents, teamTotalStart, teamTotalEnd, leadSegments, gan
               <svg className={styles.teamGanttArrows} style={{ height: totalH }}>
                 <defs>
                   <marker id="gantt-arrow-yellow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-                    <path d="M0,1 L7,4 L0,7 Z" fill="#faad14" />
+                    <path d="M0,1 L7,4 L0,7 Z" fill="var(--color-warning-light)" />
                   </marker>
                   <marker id="gantt-arrow-green" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-                    <path d="M0,1 L7,4 L0,7 Z" fill="#52c41a" />
+                    <path d="M0,1 L7,4 L0,7 Z" fill="var(--color-success)" />
                   </marker>
                 </defs>
                 {arrows.map(a => (
@@ -200,7 +200,7 @@ function TeamGantt({ teamAgents, teamTotalStart, teamTotalEnd, leadSegments, gan
                     x1={a.xPct + '%'} y1={a.fromY}
                     x2={a.xPct + '%'} y2={a.toY + 5}
                     stroke={a.color} strokeWidth="1.5" strokeDasharray="4,3" opacity="0.7"
-                    markerEnd={a.color === '#52c41a' ? 'url(#gantt-arrow-green)' : 'url(#gantt-arrow-yellow)'}
+                    markerEnd={a.color === 'var(--color-success)' ? 'url(#gantt-arrow-green)' : 'url(#gantt-arrow-yellow)'}
                   />
                 ))}
               </svg>
@@ -313,10 +313,10 @@ function TeamModal({ session, requests, mainAgentSessions, collapseToolResults, 
       width="calc(100vw - 80px)"
       title={<span className={styles.teamModalTitle}>Team: {session.name}</span>}
       styles={{
-        header: { background: '#111', borderBottom: '1px solid #2a2a2a', padding: '12px 20px' },
-        body: { background: '#0a0a0a', height: 'calc(100vh - 160px)', overflow: 'hidden', padding: 0 },
+        header: { background: 'var(--bg-container)', borderBottom: '1px solid var(--border-primary)', padding: '12px 20px' },
+        body: { background: 'var(--bg-base)', height: 'calc(100vh - 160px)', overflow: 'hidden', padding: 0 },
         mask: { background: 'rgba(0,0,0,0.7)' },
-        content: { background: '#111', border: '1px solid #2a2a2a', borderRadius: 8, padding: 0 },
+        content: { background: 'var(--bg-container)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: 0 },
       }}
       centered
     >
@@ -332,7 +332,7 @@ function TeamModal({ session, requests, mainAgentSessions, collapseToolResults, 
               <div className={styles.teamAgentName}>team-lead</div>
             </div>
             <div className={styles.teamAgentType}>orchestrator</div>
-            <div className={styles.teamAgentStatus} style={{ color: session.endTime ? (session._inferredEnd ? '#888' : '#52c41a') : '#faad14' }}>
+            <div className={styles.teamAgentStatus} style={{ color: session.endTime ? (session._inferredEnd ? 'var(--text-tertiary)' : 'var(--color-success)') : 'var(--color-warning-light)' }}>
               {session.endTime ? (session._inferredEnd ? '⏱ ended' : '✓ done') : '● active'}
             </div>
           </div>
@@ -363,7 +363,7 @@ function TeamModal({ session, requests, mainAgentSessions, collapseToolResults, 
             );
             return (
               <Popover key={i} content={popContent} trigger="click" placement="right" autoAdjustOverflow
-                overlayInnerStyle={{ background: '#1e1e1e', border: '1px solid #333', padding: 0, maxWidth: 800, maxHeight: '70vh', overflowY: 'auto' }}
+                overlayInnerStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-light)', padding: 0, maxWidth: 800, maxHeight: '70vh', overflowY: 'auto' }}
                 onOpenChange={(open) => setActiveAgentCard(open ? i : null)}
               >
                 <div className={`${styles.teamAgentCard} ${styles.teamAgentCardClickable} ${activeAgentCard === i ? styles.teamAgentCardActive : ''}`}>
@@ -372,7 +372,7 @@ function TeamModal({ session, requests, mainAgentSessions, collapseToolResults, 
                     <div className={styles.teamAgentName}>{ag.name}</div>
                   </div>
                   <div className={styles.teamAgentType}>{ag.type}</div>
-                  <div className={styles.teamAgentStatus} style={{ color: isDone ? '#52c41a' : '#faad14' }}>
+                  <div className={styles.teamAgentStatus} style={{ color: isDone ? 'var(--color-success)' : 'var(--color-warning-light)' }}>
                     {isDone ? '✓ done' : '● working'} <span className={styles.agentStatusDurSuffix}>· {durStr}</span>
                   </div>
                 </div>

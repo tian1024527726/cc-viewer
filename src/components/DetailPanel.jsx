@@ -632,8 +632,8 @@ class DetailPanel extends React.Component {
                 <div className={styles.userPromptList}>
                   {userPrompts.map(({ cleaned, msgIdx }) => (
                     <div key={msgIdx} className={styles.userPromptItem}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(22,104,220,0.2)'; e.currentTarget.style.color = '#fff'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = '#ccc'; }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-primary-bg-lighter)'; e.currentTarget.style.color = 'var(--text-white)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--text-secondary)'; }}
                       onClick={() => this.scrollToCacheMsg(msgIdx)}>
                       {cleaned}
                     </div>

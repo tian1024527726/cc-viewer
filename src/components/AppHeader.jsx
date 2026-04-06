@@ -1274,7 +1274,7 @@ class AppHeader extends React.Component {
             content={this.renderTokenStats()}
             trigger="hover"
             placement="bottomLeft"
-            overlayInnerStyle={{ background: '#1e1e1e', border: '1px solid #3a3a3a', borderRadius: 8, padding: '8px 8px', maxHeight: '80vh', overflowY: 'auto' }}
+            overlayInnerStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-hover)', borderRadius: 8, padding: '8px 8px', maxHeight: '80vh', overflowY: 'auto' }}
           >
             <Tag className={styles.tokenStatsTag}>
               <DashboardOutlined className={styles.tokenStatsIcon} />
@@ -1352,7 +1352,7 @@ class AppHeader extends React.Component {
             if (contextPercent === 0 && this._lastContextPercent > 0) {
               contextPercent = this._lastContextPercent;
             }
-            const ctxColor = contextPercent >= 80 ? '#ff4d4f' : contextPercent >= 60 ? '#faad14' : '#52c41a';
+            const ctxColor = contextPercent >= 80 ? 'var(--color-error-light)' : contextPercent >= 60 ? 'var(--color-warning-light)' : 'var(--color-success)';
 
             return isLocalLog ? (
               <Tag className={`${styles.liveTag} ${styles.liveTagHistory}`}>
@@ -1363,7 +1363,7 @@ class AppHeader extends React.Component {
                 content={this.state._cachePopoverOpen ? this.renderCacheContentPopover(contextPercent) : <div className={styles.cachePopoverPlaceholder} />}
                 trigger="hover"
                 placement="bottomLeft"
-                overlayInnerStyle={{ background: '#1e1e1e', border: '1px solid #3a3a3a', borderRadius: 8, padding: '8px 8px' }}
+                overlayInnerStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-hover)', borderRadius: 8, padding: '8px 8px' }}
                 onOpenChange={(open) => { this.setState({ _cachePopoverOpen: open }); if (!open) this._cacheScrollInited = false; }}
               >
                 <span className={styles.liveTag} style={{ borderColor: ctxColor, color: ctxColor }}>
@@ -1392,7 +1392,7 @@ class AppHeader extends React.Component {
 
         <Space size="middle">
           {countdownText && viewMode === 'raw' && (
-            <Tag style={{ background: '#2a2a2a', border: '1px solid #3a3a3a', color: countdownText === t('ui.cacheExpired') ? '#ff6b6b' : '#ccc' }}>
+            <Tag style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-hover)', color: countdownText === t('ui.cacheExpired') ? 'var(--color-error-light)' : 'var(--text-secondary)' }}>
               {t('ui.cacheCountdown', { type: cacheType ? `(${cacheType})` : '' })}
               <strong className={styles.countdownStrong}>{countdownText}</strong>
             </Tag>
@@ -1412,7 +1412,7 @@ class AppHeader extends React.Component {
                   ) : null}
                   trigger="hover"
                   placement="bottomRight"
-                  overlayInnerStyle={{ background: '#1e1e1e', border: '1px solid #3a3a3a', borderRadius: 8, padding: '8px 12px' }}
+                  overlayInnerStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-hover)', borderRadius: 8, padding: '8px 12px' }}
                 >
                   <Button className={styles.compactBtnNoBorder} icon={<span className={styles.countryFlagIcon}>{this.state.countryFlag}</span>} />
                 </Popover>
@@ -1441,7 +1441,7 @@ class AppHeader extends React.Component {
               }
               trigger="hover"
               placement="bottomRight"
-              overlayInnerStyle={{ background: '#1e1e1e', border: '1px solid #3a3a3a', borderRadius: 8, padding: '8px 8px' }}
+              overlayInnerStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-hover)', borderRadius: 8, padding: '8px 8px' }}
             >
               <Button
                 className={styles.compactBtnNoBorder}

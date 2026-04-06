@@ -341,7 +341,7 @@ class ChatMessage extends React.Component {
 
       const checkSvg = (
         <svg className={styles.askCheckSvg} width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <path d="M3 8.5L6.5 12L13 4" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       );
       return (
@@ -463,7 +463,7 @@ class ChatMessage extends React.Component {
           {isInteractive && (
             <svg className={`${styles.borderSvg} ${styles.borderSvgInset}`} preserveAspectRatio="none">
               <rect x="0" y="0" width="100%" height="100%" rx="6" ry="6"
-                fill="none" stroke="#1668dc" strokeWidth="1" strokeDasharray="6 4"
+                fill="none" stroke="var(--color-primary)" strokeWidth="1" strokeDasharray="6 4"
                 className={styles.borderRect} />
             </svg>
           )}
@@ -631,7 +631,7 @@ class ChatMessage extends React.Component {
         {(highlight === 'active' || highlight === 'fading') && (
           <svg className={`${styles.borderSvg}${highlight === 'fading' ? ' ' + styles.borderSvgFading : ''}`} preserveAspectRatio="none">
             <rect x="0.5" y="0.5" width="calc(100% - 1px)" height="calc(100% - 1px)" rx="8" ry="8"
-              fill="none" stroke={isUser ? '#ffffff' : '#1668dc'} strokeWidth="1" strokeDasharray="6 4"
+              fill="none" stroke={isUser ? 'var(--text-white)' : 'var(--color-primary)'} strokeWidth="1" strokeDasharray="6 4"
               className={styles.borderRect} />
           </svg>
         )}
@@ -817,7 +817,7 @@ class ChatMessage extends React.Component {
             key={`stag-${tu.id}`}
             placement="top"
             overlayClassName="simplifiedToolPopover"
-            overlayInnerStyle={{ background: '#1e1e1e', border: '1px solid #3a3a3a', borderRadius: 8, padding: 0 }}
+            overlayInnerStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-hover)', borderRadius: 8, padding: 0 }}
             content={<div className={styles.simplifiedToolPopoverContent}>{this.renderToolCall(tu)}</div>}
             mouseEnterDelay={0.3}
             {...(isMobile ? { trigger: 'click', getPopupContainer: (node) => node.parentElement } : {})}
@@ -936,7 +936,7 @@ class ChatMessage extends React.Component {
           {this.renderHighlightBubble(styles.bubbleAssistant, innerContent)}
         </div>
         {(() => { const ta = this.props.isTeammate ? getTeammateAvatar(label) : null; return (
-          <div className={styles.avatar} style={{ background: ta ? ta.color : 'rgba(255, 255, 255, 0.1)' }}
+          <div className={styles.avatar} style={{ background: ta ? ta.color : 'var(--bg-surface)' }}
             dangerouslySetInnerHTML={{ __html: ta ? ta.svg : getSvgAvatar(this._getSubAvatarType()) }}
           />
         ); })()}
@@ -949,7 +949,7 @@ class ChatMessage extends React.Component {
     const tmAvatar = this.props.isTeammate ? getTeammateAvatar(label) : null;
     return (
       <div className={styles.messageRow}>
-        <div className={styles.avatar} style={{ background: tmAvatar ? tmAvatar.color : 'rgba(255, 255, 255, 0.1)' }}
+        <div className={styles.avatar} style={{ background: tmAvatar ? tmAvatar.color : 'var(--bg-surface)' }}
           dangerouslySetInnerHTML={{ __html: tmAvatar ? tmAvatar.svg : getSvgAvatar(this._getSubAvatarType()) }}
         />
         <div className={styles.contentCol}>

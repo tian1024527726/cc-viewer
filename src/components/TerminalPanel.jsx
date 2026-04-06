@@ -12,6 +12,23 @@ import { isMobile, isIOS } from '../env';
 import styles from './TerminalPanel.module.css';
 import { BUILTIN_PRESETS } from '../utils/builtinPresets.js';
 
+const darkTerminalTheme = {
+  background: '#0a0a0a', foreground: '#d4d4d4', cursor: '#0a0a0a',
+  selectionBackground: '#264f78',
+  black: '#000000', red: '#ef4444', green: '#73c991', yellow: '#fbbf24',
+  blue: '#3b82f6', magenta: '#d946ef', cyan: '#06b6d4', white: '#e5e5e5',
+  brightBlack: '#666666', brightRed: '#ff7b7b', brightGreen: '#9ddc6f', brightYellow: '#ffce5b',
+  brightBlue: '#66b3ff', brightMagenta: '#e88ce8', brightCyan: '#7eddd9', brightWhite: '#ffffff',
+};
+const lightTerminalTheme = {
+  background: '#ffffff', foreground: '#333333', cursor: '#333333',
+  selectionBackground: '#cce5ff',
+  black: '#000000', red: '#CD3131', green: '#107C10', yellow: '#949800',
+  blue: '#0451A5', magenta: '#BC05BC', cyan: '#0598BC', white: '#555555',
+  brightBlack: '#666666', brightRed: '#CD3131', brightGreen: '#14CE14', brightYellow: '#B5BA00',
+  brightBlue: '#0451A5', brightMagenta: '#BC05BC', brightCyan: '#0598BC', brightWhite: '#A5A5A5',
+};
+
 // 虚拟按键定义：label 显示文字，seq 为发送到终端的转义序列
 const VIRTUAL_KEYS = [
   { label: '↑', seq: '\x1b[A' },
@@ -90,6 +107,13 @@ class TerminalPanel extends React.Component {
     this._loadPresetShortcuts();
     this._onPresetsChanged = () => this._loadPresetShortcuts();
     window.addEventListener('ccv-presets-changed', this._onPresetsChanged);
+    this._themeObserver = new MutationObserver(() => {
+      if (this.terminal) {
+        const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+        this.terminal.options.theme = isDark ? darkTerminalTheme : lightTerminalTheme;
+      }
+    });
+    this._themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   }
 
   _loadPresetShortcuts() {
@@ -121,6 +145,7 @@ class TerminalPanel extends React.Component {
   }
 
   componentWillUnmount() {
+    if (this._themeObserver) { this._themeObserver.disconnect(); this._themeObserver = null; }
     window.removeEventListener('ccv-presets-changed', this._onPresetsChanged);
     if (this._stopMobileMomentum) this._stopMobileMomentum();
     if (this._writeTimer) cancelAnimationFrame(this._writeTimer);
@@ -146,6 +171,7 @@ class TerminalPanel extends React.Component {
   }
 
   initTerminal() {
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
     this.terminal = new Terminal({
       cursorBlink: false,
       cursorStyle: 'bar',
@@ -153,12 +179,7 @@ class TerminalPanel extends React.Component {
       cursorInactiveStyle: 'none',
       fontSize: isMobile ? 11 : 13,
       fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-      theme: {
-        background: '#0a0a0a',
-        foreground: '#d4d4d4',
-        cursor: '#0a0a0a',
-        selectionBackground: '#264f78',
-      },
+      theme: isDark ? darkTerminalTheme : lightTerminalTheme,
       allowProposedApi: true,
       scrollback: isIOS ? 200 : isMobile ? 1000 : 3000,
       smoothScrollDuration: 0,
@@ -894,7 +915,7 @@ class TerminalPanel extends React.Component {
                 placement="top"
                 open={this.state.agentTeamPopoverOpen}
                 onOpenChange={(v) => this.setState({ agentTeamPopoverOpen: v })}
-                overlayInnerStyle={{ background: '#1e1e1e', border: '1px solid #3a3a3a', borderRadius: 8, padding: 4, minWidth: 140 }}
+                overlayInnerStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-hover)', borderRadius: 8, padding: 4, minWidth: 140 }}
                 content={
                   <div className={styles.presetMenu}>
                     <button className={`${styles.presetMenuItem} ${styles.presetMenuItemMuted}`} onClick={() => { this.setState({ agentTeamPopoverOpen: false, presetModalVisible: true }); }}>
@@ -926,7 +947,7 @@ class TerminalPanel extends React.Component {
               <Popover
                 trigger="click"
                 placement="top"
-                overlayInnerStyle={{ background: '#1e1e1e', border: '1px solid #3a3a3a', borderRadius: 8, padding: '12px 16px', maxWidth: 360 }}
+                overlayInnerStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-hover)', borderRadius: 8, padding: '12px 16px', maxWidth: 360 }}
                 content={
                   <div>
                     <div className={styles.agentTeamDisabledTip}>{t('ui.terminal.agentTeamDisabledTip')}</div>
@@ -1015,7 +1036,7 @@ class TerminalPanel extends React.Component {
           onCancel={() => this.setState({ presetModalVisible: false, presetSelected: new Set() })}
           footer={null}
           width={800}
-          styles={{ content: { background: '#1e1e1e', border: '1px solid #333' }, header: { background: '#1e1e1e', borderBottom: 'none' } }}
+          styles={{ content: { background: 'var(--bg-elevated)', border: '1px solid var(--border-light)' }, header: { background: 'var(--bg-elevated)', borderBottom: 'none' } }}
         >
           <div className={styles.presetSectionHeader}>
             <span className={styles.presetSectionTitle}>{t('ui.terminal.agentTeamCustom')}</span>
@@ -1078,7 +1099,7 @@ class TerminalPanel extends React.Component {
           cancelText={t('ui.cancel')}
           okButtonProps={{ disabled: !this.state.presetAddText.trim() && !this.state.presetAddName.trim() }}
           width="fit-content"
-          styles={{ content: { background: '#1e1e1e', border: '1px solid #333' }, header: { background: '#1e1e1e', borderBottom: 'none' } }}
+          styles={{ content: { background: 'var(--bg-elevated)', border: '1px solid var(--border-light)' }, header: { background: 'var(--bg-elevated)', borderBottom: 'none' } }}
         >
           <div className={styles.presetFormField}>
             <label className={styles.presetFormLabel}>Team {t('ui.terminal.teamName')}</label>

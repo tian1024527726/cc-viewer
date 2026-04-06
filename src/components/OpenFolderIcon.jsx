@@ -29,9 +29,9 @@ export default function OpenFolderIcon({ apiEndpoint, title, size = 16 }) {
 
   // Open folder (yellow filled)
   const openFolder = (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#e8a838" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-yellow)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M5 19a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4l2 2h5a2 2 0 0 1 2 2v1" fill="none" />
-      <path d="M20 10H8.5A2.5 2.5 0 0 0 6 12.5L5 19h13.5a2 2 0 0 0 2-1.75l1-6.25A1 1 0 0 0 20.5 10z" fill="#e8a838" stroke="#d49520" />
+      <path d="M20 10H8.5A2.5 2.5 0 0 0 6 12.5L5 19h13.5a2 2 0 0 0 2-1.75l1-6.25A1 1 0 0 0 20.5 10z" fill="var(--color-accent-yellow)" stroke="var(--color-accent-yellow)" />
     </svg>
   );
 

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Modal, Spin, ConfigProvider, theme } from 'antd';
+import { Modal, Spin } from 'antd';
 import { renderMarkdown } from '../utils/markdown';
 import { apiUrl } from '../utils/apiUrl';
 import { getLang } from '../i18n';
@@ -60,7 +60,7 @@ export default function ConceptHelp({ doc, zIndex }) {
     body: { maxHeight: '80vh', overflow: 'auto', padding: '8px 10px' },
     content: { padding: 0 },
   } : {
-    body: { padding: '16px 24px 24px', background: '#111', borderRadius: '4px' },
+    body: { padding: '16px 24px 24px', background: 'var(--bg-container)', borderRadius: '4px' },
     content: { padding: '12px 20px' },
   };
 
@@ -71,7 +71,6 @@ export default function ConceptHelp({ doc, zIndex }) {
         onMouseDown={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
         onPointerDown={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
       >?</span>
-      <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#1668dc', colorBgContainer: '#111', colorBgLayout: '#0a0a0a', colorBgElevated: '#1e1e1e', colorBorder: '#2a2a2a' } }}>
         <Modal
           title={title}
           open={open}
@@ -89,7 +88,6 @@ export default function ConceptHelp({ doc, zIndex }) {
             <div className={styles.modalBody} dangerouslySetInnerHTML={{ __html: html }} />
           )}
         </Modal>
-      </ConfigProvider>
     </>
   );
 }

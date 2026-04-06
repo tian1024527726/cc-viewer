@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   z-index: 1050;
-  background: #000000e0;
+  background: var(--overlay-dark-strong);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -41,14 +41,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #00000080;
+  background: var(--overlay-dark-light);
   border: none;
   border-radius: 50%;
-  color: #fff;
+  color: var(--text-white);
   cursor: pointer;
   transition: background 0.15s;
 }
-.closeBtn:hover { background: #ffffff33; }
+.closeBtn:hover { background: var(--overlay-light-strong); }
 
 /* Image area */
 .imageArea {
@@ -76,8 +76,8 @@
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #ffffff26;
-  border-top-color: #ffffffb3;
+  border: 3px solid var(--overlay-light-medium);
+  border-top-color: var(--overlay-light-bright);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
@@ -92,8 +92,8 @@
   left: 50%;
   transform: translateX(-50%);
   padding: 4px 12px;
-  background: #00000099;
-  color: #fff;
+  background: var(--overlay-dark-medium);
+  color: var(--text-white);
   font-size: 13px;
   border-radius: 12px;
   pointer-events: none;
@@ -101,7 +101,7 @@
 
 /* Error message */
 .errorMsg {
-  color: #999;
+  color: var(--text-tertiary);
   font-size: 15px;
   text-align: center;
 }

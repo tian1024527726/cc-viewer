@@ -2505,8 +2505,8 @@ class ChatView extends React.Component {
               <svg width="20" height="20" viewBox="0 0 20 20">
                 <defs>
                   <linearGradient id="ccv-spinnerGrad" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="white" stopOpacity="1" />
-                    <stop offset="100%" stopColor="white" stopOpacity="0.1" />
+                    <stop offset="0%" stopColor="currentColor" stopOpacity="1" />
+                    <stop offset="100%" stopColor="currentColor" stopOpacity="0.1" />
                   </linearGradient>
                 </defs>
                 <circle cx="10" cy="10" r="7.5" fill="none" strokeWidth="2"
@@ -2573,8 +2573,8 @@ class ChatView extends React.Component {
               <svg width="20" height="20" viewBox="0 0 20 20">
                 <defs>
                   <linearGradient id="ccv-spinnerGrad-desktop" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="white" stopOpacity="1" />
-                    <stop offset="100%" stopColor="white" stopOpacity="0.1" />
+                    <stop offset="0%" stopColor="currentColor" stopOpacity="1" />
+                    <stop offset="100%" stopColor="currentColor" stopOpacity="0.1" />
                   </linearGradient>
                 </defs>
                 <circle cx="10" cy="10" r="7.5" fill="none" strokeWidth="2"

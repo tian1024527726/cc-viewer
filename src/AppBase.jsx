@@ -221,6 +221,7 @@ class AppBase extends React.Component {
         }
         if (data.themeColor) {
           this.setState({ themeColor: data.themeColor });
+          document.documentElement.setAttribute('data-theme', data.themeColor === 'light' ? 'light' : 'dark');
         }
         // filterIrrelevant 默认 true，showAll = !filterIrrelevant
         const filterIrrelevant = data.filterIrrelevant !== undefined ? !!data.filterIrrelevant : true;
@@ -1193,6 +1194,7 @@ class AppBase extends React.Component {
 
   handleThemeColorChange = (value) => {
     this.setState({ themeColor: value });
+    document.documentElement.setAttribute('data-theme', value === 'light' ? 'light' : 'dark');
     fetch(apiUrl('/api/preferences'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1644,8 +1646,22 @@ class AppBase extends React.Component {
     );
   }
 
-  /** Ant Design 暗色主题配置 */
-  get darkThemeConfig() {
+  /** Ant Design 主题配置 (dark/light) */
+  get themeConfig() {
+    if (this.state.themeColor === 'light') {
+      return {
+        algorithm: theme.defaultAlgorithm,
+        token: {
+          colorPrimary: '#0969DA',
+          colorBgContainer: '#FFFFFF',
+          colorBgLayout: '#FAFAFA',
+          colorBgElevated: '#FFFFFF',
+          colorBorder: '#E0E0E0',
+          controlOutline: 'transparent',
+          controlOutlineWidth: 0,
+        },
+      };
+    }
     return {
       algorithm: theme.darkAlgorithm,
       token: {

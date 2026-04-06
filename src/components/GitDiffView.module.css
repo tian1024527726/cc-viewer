@@ -2,7 +2,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #0d0d0d;
+  background: var(--bg-base-alt);
   overflow: hidden;
   animation: slideInFromRight 0.25s ease-out;
 }
@@ -38,8 +38,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 6px 16px;
-  border-bottom: 1px solid #2a2a2a;
-  background: #111;
+  border-bottom: 1px solid var(--border-primary);
+  background: var(--bg-container);
   flex-shrink: 0;
 }
 
@@ -56,7 +56,7 @@
   height: 28px;
   border: none;
   background: none;
-  color: #888;
+  color: var(--text-tertiary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -68,13 +68,13 @@
 }
 
 .backBtn:hover {
-  color: #ccc;
-  background: #2a2a2a;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
 }
 
 .filePath {
   font-size: 13px;
-  color: #ccc;
+  color: var(--text-secondary);
   font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -84,18 +84,18 @@
 }
 
 .filePath:hover {
-  color: #7dd3fc;
+  color: var(--color-info-light);
   text-decoration: underline;
 }
 
 .diffBadge {
   padding: 2px 8px;
-  background: #2a2a2a;
-  border: 1px solid #444;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
   border-radius: 4px;
   font-size: 10px;
   font-weight: 600;
-  color: #e2c08d;
+  color: var(--color-accent-yellow);
   letter-spacing: 0.5px;
   flex-shrink: 0;
 }
@@ -115,15 +115,15 @@
   padding: 0;
   border: none;
   background: transparent;
-  color: #888;
+  color: var(--text-tertiary);
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
 
 .closeBtn:hover {
-  background: #ffffff1a;
-  color: #fff;
+  background: var(--overlay-light-medium);
+  color: var(--text-white);
 }
 
 .contentContainer {
@@ -137,7 +137,7 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #888;
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 
@@ -146,7 +146,7 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #f87171;
+  color: var(--color-error-light);
   font-size: 13px;
   padding: 20px;
   text-align: center;
@@ -157,7 +157,7 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #888;
+  color: var(--text-tertiary);
   font-size: 13px;
   font-style: italic;
   padding: 20px;
@@ -170,7 +170,7 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #e2c08d;
+  color: var(--color-accent-yellow);
   font-size: 13px;
   padding: 20px;
   text-align: center;
@@ -178,7 +178,7 @@
 }
 
 .fileSize {
-  color: #888;
+  color: var(--text-tertiary);
   font-size: 12px;
   margin: 0;
 }

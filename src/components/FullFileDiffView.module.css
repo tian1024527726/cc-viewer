@@ -3,7 +3,7 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #0d0d0d;
+  background: var(--bg-base-alt);
   overflow: hidden;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
@@ -11,8 +11,8 @@
 
 .diffSummary {
   padding: 8px 16px;
-  background: #111;
-  border-bottom: 1px solid #2a2a2a;
+  background: var(--bg-container);
+  border-bottom: 1px solid var(--border-primary);
   display: flex;
   gap: 8px;
   align-items: center;
@@ -21,23 +21,23 @@
 
 .addedBadge {
   padding: 2px 8px;
-  background: #73c99126;
-  border: 1px solid #73c9914d;
+  background: var(--color-diff-add-bg);
+  border: 1px solid var(--color-diff-add-bg);
   border-radius: 4px;
   font-size: 11px;
   font-weight: 600;
-  color: #73c991;
+  color: var(--color-diff-add);
   font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
 }
 
 .deletedBadge {
   padding: 2px 8px;
-  background: #ef444426;
-  border: 1px solid #ef44444d;
+  background: var(--color-error-bg-light);
+  border: 1px solid var(--color-error-bg-medium);
   border-radius: 4px;
   font-size: 11px;
   font-weight: 600;
-  color: #ef4444;
+  color: var(--color-error);
   font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
 }
 
@@ -54,8 +54,8 @@
 .lineNumberCol {
   flex-shrink: 0;
   overflow: hidden;
-  background: #0d0d0d;
-  border-right: 1px solid #2a2a2a;
+  background: var(--bg-base-alt);
+  border-right: 1px solid var(--border-primary);
   user-select: none;
 }
 
@@ -76,33 +76,33 @@
 
 .lineNumNormal .oldLineNum,
 .lineNumNormal .newLineNum {
-  color: #555;
+  color: var(--text-disabled);
 }
 
 .lineNumAdd {
-  border-right: 3px solid #73c991;
+  border-right: 3px solid var(--color-diff-add);
 }
 
 .lineNumAdd .oldLineNum {
-  color: #555;
+  color: var(--text-disabled);
 }
 
 .lineNumAdd .newLineNum {
-  color: #73c991;
+  color: var(--color-diff-add);
   font-weight: 600;
 }
 
 .lineNumDelete {
-  border-right: 3px solid #ef4444;
+  border-right: 3px solid var(--color-error);
 }
 
 .lineNumDelete .oldLineNum {
-  color: #ef4444;
+  color: var(--color-error);
   font-weight: 600;
 }
 
 .lineNumDelete .newLineNum {
-  color: #555;
+  color: var(--text-disabled);
 }
 
 .codeColWrap {
@@ -132,21 +132,21 @@
 }
 
 .codeLine:hover {
-  background: #ffffff0a;
+  background: var(--overlay-light-faint);
 }
 
 .linePrefix {
   display: inline-block;
   width: 16px;
   text-align: center;
-  color: #888;
+  color: var(--text-tertiary);
   flex-shrink: 0;
   user-select: none;
 }
 
 .lineContent {
   padding-right: 16px;
-  color: #ccc;
+  color: var(--text-secondary);
   white-space: pre;
 }
 
@@ -155,19 +155,19 @@
 }
 
 .lineAdd {
-  background: #73c99126;
+  background: var(--color-diff-add-bg);
 }
 
 .lineAdd .linePrefix {
-  color: #73c991;
+  color: var(--color-diff-add);
 }
 
 .lineDelete {
-  background: #ef44441a;
+  background: var(--color-error-bg-faint);
 }
 
 .lineDelete .linePrefix {
-  color: #ef4444;
+  color: var(--color-error);
 }
 
 .lineDelete .lineContent {

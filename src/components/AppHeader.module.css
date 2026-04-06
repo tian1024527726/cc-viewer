@@ -55,9 +55,9 @@
 .tokenStatsTag {
   border-radius: 12px;
   cursor: pointer;
-  background: #2a2a2a;
-  border: 1px solid #3a3a3a;
-  color: #ccc;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-hover);
+  color: var(--text-secondary);
 }
 
 .tokenStatsIcon {
@@ -98,9 +98,9 @@
 }
 
 .liveTagHistory {
-  background: #2a2a2a;
-  border-color: #444;
-  color: #e5e5e5;
+  background: var(--bg-surface);
+  border-color: var(--border-light);
+  color: var(--text-primary);
 }
 
 .liveTagText {
@@ -126,15 +126,15 @@
   align-items: center;
   padding: 16px;
   margin-bottom: 12px;
-  border: 1px solid #303030;
+  border: 1px solid var(--border-secondary);
   border-radius: 8px;
-  background: #111;
+  background: var(--bg-container);
 }
 
 .qrcodeTitle {
   font-size: 14px;
   font-weight: 600;
-  color: #e5e5e5;
+  color: var(--text-primary);
   margin-bottom: 12px;
 }
 
@@ -146,19 +146,19 @@
 
 .qrcodeUrlCopy {
   cursor: pointer;
-  color: #888;
+  color: var(--text-tertiary);
   transition: color 0.2s;
 }
 
 .qrcodeUrlCopy:hover {
-  color: #3b82f6;
+  color: var(--color-primary-light);
 }
 
 /* Settings group box */
 .settingsGroupBox {
-  border: 1px solid #303030;
+  border: 1px solid var(--border-secondary);
   border-radius: 8px;
-  background: #111;
+  background: var(--bg-container);
   padding: 4px 16px;
   margin-bottom: 12px;
 }
@@ -166,9 +166,9 @@
 .settingsGroupTitle {
   font-size: 14px;
   font-weight: 600;
-  color: #e5e5e5;
+  color: var(--text-primary);
   padding: 12px 0 4px;
-  border-bottom: 1px solid #303030;
+  border-bottom: 1px solid var(--border-secondary);
 }
 
 /* Settings drawer items */
@@ -184,15 +184,15 @@
 }
 
 .settingsDivider {
-  border-top: 1px solid #2a2a2a;
+  border-top: 1px solid var(--border-primary);
   margin: 12px 0;
 }
 
 .logDirInput {
   margin-top: 8px;
-  background: #1a1a1a;
-  border-color: #333;
-  color: #e5e5e5;
+  background: var(--bg-base-alt);
+  border-color: var(--border-light);
+  color: var(--text-primary);
   font-family: monospace;
   font-size: 13px;
 }
@@ -200,7 +200,7 @@
 /* Token stats popover - empty state */
 .tokenStatsEmpty {
   padding: 8px 4px;
-  color: #999;
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 
@@ -221,10 +221,10 @@
 
 /* Token stats - model card */
 .modelCard {
-  border: 1px solid #303030;
+  border: 1px solid var(--border-secondary);
   border-radius: 6px;
   padding: 8px 10px;
-  background: #111;
+  background: var(--bg-container);
 }
 
 .modelCardSpaced {
@@ -236,10 +236,10 @@
 .modelName {
   font-size: 13px;
   font-weight: 600;
-  color: #e5e5e5;
+  color: var(--text-primary);
   margin-bottom: 8px;
   padding-bottom: 4px;
-  border-bottom: 1px solid #303030;
+  border-bottom: 1px solid var(--border-secondary);
 }
 
 /* Token stats - table */
@@ -253,7 +253,7 @@
   font-size: 12px;
   font-family: monospace;
   white-space: nowrap;
-  color: #888;
+  color: var(--text-tertiary);
   font-weight: normal;
   text-align: right;
 }
@@ -263,7 +263,7 @@
   font-size: 12px;
   font-family: monospace;
   white-space: nowrap;
-  color: #e5e5e5;
+  color: var(--text-primary);
   text-align: right;
 }
 
@@ -272,25 +272,25 @@
   font-size: 12px;
   font-family: monospace;
   white-space: nowrap;
-  color: #aaa;
+  color: var(--text-light);
   font-weight: normal;
   text-align: left;
 }
 
 .rowBorder {
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--border-primary);
 }
 
 .rebuildCard {
-  border: 1px solid #303030;
+  border: 1px solid var(--border-secondary);
   border-radius: 6px;
   padding: 8px 10px;
   margin-top: 10px;
-  background: #111;
+  background: var(--bg-container);
 }
 
 .rebuildTotalRow {
-  border-top: 1px solid #444;
+  border-top: 1px solid var(--border-light);
 }
 
 .rebuildTotalRow td {
@@ -308,13 +308,13 @@
 }
 
 .promptEmpty {
-  color: #999;
+  color: var(--text-tertiary);
   padding: 12px;
 }
 
 /* Prompt timestamp */
 .promptTimestamp {
-  color: #666;
+  color: var(--text-muted);
   font-size: 12px;
   margin: 12px 0 4px;
   padding-bottom: 6px;
@@ -323,9 +323,9 @@
 /* Text prompt card */
 .textPromptCard {
   margin: 4px 0;
-  background: #111;
+  background: var(--bg-container);
   border-radius: 6px;
-  border: 1px solid #303030;
+  border: 1px solid var(--border-secondary);
   padding: 10px 14px;
 }
 
@@ -335,20 +335,20 @@
   word-break: break-word;
   font-size: 13px;
   line-height: 1.6;
-  color: #e5e5e5;
+  color: var(--text-primary);
   margin: 4px 0;
 }
 
 /* Collapse for system-reminder segments */
 .systemCollapse {
   margin: 4px 0;
-  background: #1e1e1e;
-  border: 1px solid #303030;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-secondary);
   border-radius: 6px;
 }
 
 .systemLabel {
-  color: #888;
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 
@@ -357,17 +357,17 @@
   word-break: break-word;
   font-size: 12px;
   line-height: 1.5;
-  color: #999;
+  color: var(--text-tertiary);
   margin: 0;
 }
 
 /* Text mode textarea */
 .promptTextarea {
   box-sizing: border-box;
-  background: #000;
+  background: var(--bg-base-pure);
   width: 100%;
   min-height: 400px;
-  color: #e5e5e5;
+  color: var(--text-primary);
   font-family: monospace;
   font-size: 13px;
   line-height: 1.6;
@@ -385,7 +385,7 @@
 }
 
 .projectStatsEmpty {
-  color: #999;
+  color: var(--text-tertiary);
   padding: 40px 0;
   text-align: center;
   font-size: 13px;
@@ -398,7 +398,7 @@
 }
 
 .projectStatsUpdated {
-  color: #666;
+  color: var(--text-muted);
   font-size: 12px;
   text-align: right;
 }
@@ -410,8 +410,8 @@
 }
 
 .projectStatCard {
-  background: #111;
-  border: 1px solid #303030;
+  background: var(--bg-container);
+  border: 1px solid var(--border-secondary);
   border-radius: 8px;
   padding: 14px 12px;
   text-align: center;
@@ -420,14 +420,14 @@
 .projectStatValue {
   font-size: 22px;
   font-weight: 700;
-  color: #e5e5e5;
+  color: var(--text-primary);
   font-family: monospace;
   font-variant-numeric: tabular-nums;
 }
 
 .projectStatLabel {
   font-size: 12px;
-  color: #888;
+  color: var(--text-tertiary);
   margin-top: 4px;
 }
 
@@ -440,14 +440,14 @@
 .projectStatsSectionTitle {
   font-size: 14px;
   font-weight: 600;
-  color: #ccc;
+  color: var(--text-secondary);
   padding-bottom: 4px;
-  border-bottom: 1px solid #303030;
+  border-bottom: 1px solid var(--border-secondary);
 }
 
 .projectStatsModelCard {
-  background: #111;
-  border: 1px solid #303030;
+  background: var(--bg-container);
+  border: 1px solid var(--border-secondary);
   border-radius: 6px;
   padding: 10px 12px;
 }
@@ -458,18 +458,18 @@
   align-items: center;
   margin-bottom: 8px;
   padding-bottom: 4px;
-  border-bottom: 1px solid #303030;
+  border-bottom: 1px solid var(--border-secondary);
 }
 
 .projectStatsModelName {
   font-size: 13px;
   font-weight: 600;
-  color: #e5e5e5;
+  color: var(--text-primary);
 }
 
 .projectStatsModelCount {
   font-size: 12px;
-  color: #888;
+  color: var(--text-tertiary);
   font-family: monospace;
 }
 
@@ -477,20 +477,20 @@
 .pluginDirHint {
   margin-bottom: 12px;
   font-size: 12px;
-  color: #888;
+  color: var(--text-tertiary);
 }
 
 .pluginDirPath {
   font-family: Menlo, Monaco, monospace;
-  color: #aaa;
+  color: var(--text-light);
   cursor: pointer;
   padding: 1px 4px;
   border-radius: 3px;
-  background: #1e1e1e;
+  background: var(--bg-elevated);
 }
 
 .pluginDirPath:hover {
-  color: #3b82f6;
+  color: var(--color-primary-light);
 }
 
 .pluginList {
@@ -504,9 +504,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  border: 1px solid #303030;
+  border: 1px solid var(--border-secondary);
   border-radius: 6px;
-  background: #111;
+  background: var(--bg-container);
 }
 
 .pluginInfo {
@@ -519,13 +519,13 @@
 
 .pluginName {
   font-size: 14px;
-  color: #e5e5e5;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .pluginFile {
   font-size: 12px;
-  color: #666;
+  color: var(--text-muted);
   font-family: Menlo, Monaco, monospace;
 }
 
@@ -540,8 +540,8 @@
   font-size: 11px;
   padding: 0 5px;
   border-radius: 3px;
-  background: #1e3a5f;
-  color: #60a5fa;
+  background: var(--color-primary-dark-bg);
+  color: var(--color-primary-lighter);
   line-height: 18px;
 }
 
@@ -556,7 +556,7 @@
 .pluginEmpty {
   text-align: center;
   padding: 32px 0;
-  color: #999;
+  color: var(--text-tertiary);
 }
 
 /* KV-Cache content popover */
@@ -575,30 +575,30 @@
   gap: 6px;
   font-size: 14px;
   font-weight: 600;
-  color: #e5e5e5;
+  color: var(--text-primary);
 }
 
 .cachePopoverHeader {
   margin-bottom: 8px;
   padding-bottom: 6px;
-  border-bottom: 1px solid #303030;
+  border-bottom: 1px solid var(--border-secondary);
 }
 
 .cacheCopyBtn {
   font-size: 14px;
-  color: #888;
+  color: var(--text-tertiary);
   cursor: pointer;
   transition: color 0.2s;
   margin-left: 8px;
 }
 
 .cacheCopyBtn:hover {
-  color: #e5e5e5;
+  color: var(--text-primary);
 }
 
 .cachePopoverEmpty {
   padding: 8px 4px;
-  color: #999;
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 
@@ -607,7 +607,7 @@
   align-items: center;
   font-size: 12px;
   font-family: monospace;
-  color: #aaa;
+  color: var(--text-light);
   margin-bottom: 8px;
 }
 
@@ -621,7 +621,7 @@
   gap: 2px;
   font-size: 12px;
   font-weight: 600;
-  color: #aaa;
+  color: var(--text-light);
   margin-bottom: 4px;
   padding: 4px 0;
   background: none;
@@ -633,14 +633,14 @@
 }
 
 .cacheSectionTitle:hover {
-  color: #ccc;
+  color: var(--text-secondary);
 }
 
 .cacheSectionArrow {
   display: inline-block;
   width: 12px;
   font-size: 10px;
-  color: #666;
+  color: var(--text-muted);
   flex-shrink: 0;
 }
 
@@ -649,9 +649,9 @@
   word-break: break-word;
   font-size: 12px;
   line-height: 1.5;
-  color: #ccc;
-  background: #111;
-  border: 1px solid #2a2a2a;
+  color: var(--text-secondary);
+  background: var(--bg-container);
+  border: 1px solid var(--border-primary);
   border-radius: 4px;
   padding: 8px;
   margin: 4px 0;
@@ -663,9 +663,9 @@
   word-break: break-word;
   font-size: 12px;
   line-height: 1.5;
-  color: #ccc;
-  background: #060f2a;
-  border: 1px solid #0b2a5c;
+  color: var(--text-secondary);
+  background: var(--bg-code-system);
+  border: 1px solid var(--border-code-system);
   border-radius: 4px;
   padding: 8px;
   margin: 4px 0;
@@ -675,16 +675,16 @@
 .cacheNavBtn {
   margin-left: auto;
   font-size: 11px;
-  color: #1668dc;
+  color: var(--color-primary);
   cursor: pointer;
-  border: 1px solid #1668dc;
+  border: 1px solid var(--color-primary);
   border-radius: 3px;
   padding: 1px 6px;
   white-space: nowrap;
 }
 
 .cacheNavBtn:hover {
-  background: #1668dc26;
+  background: var(--color-primary-bg-light);
 }
 
 .cacheNavList {
@@ -696,7 +696,7 @@
 .cacheNavItem {
   padding: 4px 8px;
   font-size: 12px;
-  color: #ccc;
+  color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
@@ -705,17 +705,17 @@
 }
 
 .cacheNavItem:hover {
-  background: #1668dc33;
-  color: #fff;
+  background: var(--color-primary-bg-lighter);
+  color: var(--text-white);
 }
 
 .cacheBlockHighlight {
-  box-shadow: 0 0 10px #1668dc99;
+  box-shadow: 0 0 10px var(--color-primary-shadow);
   transition: box-shadow 0.2s ease-in;
 }
 
 .cacheBlockHighlightFading {
-  box-shadow: 0 0 10px #1668dc00;
+  box-shadow: 0 0 10px transparent;
   transition: box-shadow 3s ease-out;
 }
 
@@ -750,7 +750,7 @@
 /* Cache popover calibration model label */
 .cacheCalibrationLabel {
   margin-left: auto;
-  color: #888;
+  color: var(--text-tertiary);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -768,15 +768,15 @@
 
 /* Cache token colors */
 .cacheWriteToken {
-  color: #d97757;
+  color: var(--color-code-orange);
 }
 
 .cacheReadToken {
-  color: #22c55e;
+  color: var(--color-success);
 }
 
 .cacheCtxPercent {
-  color: #888;
+  color: var(--text-tertiary);
   margin-left: 6px;
 }
 
@@ -793,7 +793,7 @@
 
 /* Plugin dir label */
 .pluginDirLabel {
-  color: #888;
+  color: var(--text-tertiary);
 }
 
 /* Plugin empty state */
@@ -804,20 +804,20 @@
 
 .pluginEmptyHint {
   font-size: 12px;
-  color: #666;
+  color: var(--text-muted);
 }
 
 /* CDN install modal */
 .cdnUrlLabel {
   margin-bottom: 6px;
-  color: #ccc;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
 .cdnInput {
-  background: #1e1e1e;
-  border-color: #303030;
-  color: #e5e5e5;
+  background: var(--bg-elevated);
+  border-color: var(--border-secondary);
+  color: var(--text-primary);
 }
 
 /* Icon with marginRight in drawer/modal titles */
@@ -859,24 +859,24 @@
 
 /* Country info popover */
 .countryInfoPopover {
-  color: #ccc;
+  color: var(--text-secondary);
   font-size: 13px;
   line-height: 22px;
 }
 
 .countryInfoMeta {
-  color: #888;
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 
 .disabledMenuItem {
-  color: #555;
+  color: var(--text-disabled);
   cursor: not-allowed;
 }
 
 .currentProcessBtn {
-  color: #22c55e;
-  border-color: #22c55e;
+  color: var(--color-success);
+  border-color: var(--color-success);
 }
 
 .proxySwapIcon {
@@ -891,23 +891,23 @@
 /* Proxy Profile */
 .proxyProfileTag {
   border-radius: 12px;
-  background: #303030;
-  border: 1px solid #444;
-  color: #999;
+  background: var(--border-secondary);
+  border: 1px solid var(--border-light);
+  color: var(--text-tertiary);
   font-size: 12px;
   cursor: pointer;
   transition: color 0.2s, border-color 0.2s;
 }
 .proxyProfileTag:hover {
-  color: #ccc;
-  border-color: #555;
+  color: var(--text-secondary);
+  border-color: var(--text-disabled);
 }
 
 .proxyWarning {
-  background: #2a2000;
-  border: 1px solid #5c4d00;
+  background: var(--color-warning-dark-bg);
+  border: 1px solid var(--color-warning-dark-border);
   border-radius: 4px;
-  color: #fbbf24;
+  color: var(--color-warning-light);
   font-size: 12px;
   padding: 6px 10px;
   margin-bottom: 10px;
@@ -925,15 +925,15 @@
   justify-content: space-between;
   padding: 8px 12px;
   border-radius: 6px;
-  border: 1px solid #00000000;
+  border: 1px solid transparent;
   transition: background 0.15s;
 }
 .proxyItem:hover {
-  background: #1e1e1e;
+  background: var(--bg-elevated);
 }
 .proxyItemActive {
-  background: #1a2332;
-  border-color: #1668dc;
+  background: var(--color-selection-bg);
+  border-color: var(--color-primary);
 }
 
 .proxyItemMain {
@@ -958,13 +958,13 @@
 
 .proxyItemName {
   font-size: 13px;
-  color: #e5e5e5;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .proxyItemDetail {
   font-size: 11px;
-  color: #6b7280;
+  color: var(--text-gray);
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -975,8 +975,8 @@
   font-size: 10px;
   padding: 0 4px;
   border-radius: 3px;
-  background: #1e3a5f;
-  color: #60a5fa;
+  background: var(--color-primary-dark-bg);
+  color: var(--color-primary-lighter);
   line-height: 16px;
   border: none;
 }
@@ -991,8 +991,8 @@
   margin-top: 12px;
   padding: 12px;
   border-radius: 6px;
-  background: #1e1e1e;
-  border: 1px solid #303030;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-secondary);
 }
 
 .proxyEditRow {
@@ -1001,17 +1001,17 @@
 .proxyEditRow label {
   display: block;
   font-size: 12px;
-  color: #999;
+  color: var(--text-tertiary);
   margin-bottom: 4px;
 }
 
 .proxyRequired {
-  color: #ef4444;
+  color: var(--color-error);
   margin-left: 2px;
 }
 
 .proxyEditDivider {
-  border-top: 1px dashed #303030;
+  border-top: 1px dashed var(--border-secondary);
   margin: 10px 0 8px;
 }
 

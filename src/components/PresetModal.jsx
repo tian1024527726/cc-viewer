@@ -87,7 +87,7 @@ export default function PresetModal({ open, onClose, items, onItemsChange, dismi
   return (
     <>
       <Modal title={t('ui.terminal.presetShortcuts')} open={open} onCancel={handleClose} footer={null} width={800}
-        styles={{ content: { background: '#1e1e1e', border: '1px solid #333' }, header: { background: '#1e1e1e', borderBottom: 'none' } }}>
+        styles={{ content: { background: 'var(--bg-elevated)', border: '1px solid var(--border-light)' }, header: { background: 'var(--bg-elevated)', borderBottom: 'none' } }}>
         <div className={styles.presetSectionHeader}><span className={styles.presetSectionTitle}>{t('ui.terminal.agentTeamCustom')}</span></div>
         <div className={styles.presetList} onDragOver={e => { e.preventDefault(); e.stopPropagation(); }} onDrop={e => { e.preventDefault(); e.stopPropagation(); }}>
           {items.length === 0 ? <div className={styles.presetListEmptyHint}>—</div> : items.map((item, idx) => {
@@ -117,7 +117,7 @@ export default function PresetModal({ open, onClose, items, onItemsChange, dismi
         onCancel={() => { setAddVisible(false); setAddName(''); setAddText(''); setEditId(null); }}
         onOk={handleAdd} okText={editId ? t('ui.ok') : t('ui.terminal.addItem')} cancelText={t('ui.cancel')}
         okButtonProps={{ disabled: !addText.trim() && !addName.trim() }} width="fit-content"
-        styles={{ content: { background: '#1e1e1e', border: '1px solid #333' }, header: { background: '#1e1e1e', borderBottom: 'none' } }}>
+        styles={{ content: { background: 'var(--bg-elevated)', border: '1px solid var(--border-light)' }, header: { background: 'var(--bg-elevated)', borderBottom: 'none' } }}>
         <div className={styles.presetFormField}>
           <label className={styles.presetFormLabel}>Team {t('ui.terminal.teamName')}</label>
           <input className={styles.presetInput} placeholder={t('ui.terminal.teamNamePlaceholder')} value={addName} onChange={e => setAddName(e.target.value)} />

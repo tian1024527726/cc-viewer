@@ -61,7 +61,7 @@ function ChatInputBar({ inputRef, inputEmpty, inputSuggestion, terminalVisible, 
             ].map((l, i, arr) => (
               <rect key={i} x="0" y="0" width="100%" height="100%" rx="16" ry="16"
                 pathLength="100" fill="none" strokeWidth="1.5"
-                stroke="#60a5fa" strokeOpacity={l.op}
+                stroke="var(--color-primary-lighter)" strokeOpacity={l.op}
                 strokeLinecap="round" strokeDasharray={l.da}
                 filter={i === arr.length - 1 ? 'url(#ccv-streamGlow)' : undefined}>
                 <animate attributeName="stroke-dashoffset"

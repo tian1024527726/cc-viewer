@@ -19,7 +19,7 @@ const EXT_COLORS = {
 function getFileIcon(name, type) {
   if (type === 'directory') {
     return (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="#c09553" stroke="none">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--color-accent-yellow)" stroke="none">
         <path d="M2 6c0-1.1.9-2 2-2h5l2 2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z"/>
       </svg>
     );
@@ -274,7 +274,7 @@ function TreeNode({ item, path, depth, onFileClick, expandedPaths, onToggleExpan
         const inputId = `ccv-newfile-${Date.now()}`;
         Modal.confirm({
           title: t('ui.contextMenu.newFile'),
-          content: <Input id={inputId} autoFocus placeholder="filename.ext" style={{ background: '#141414', borderColor: '#2a2a2a', color: '#ccc', caretColor: '#ccc' }} onPressEnter={() => { document.querySelector('.ant-modal-confirm-btns .ant-btn-primary')?.click(); }} />,
+          content: <Input id={inputId} autoFocus placeholder="filename.ext" style={{ background: 'var(--bg-container)', borderColor: 'var(--border-primary)', color: 'var(--text-secondary)', caretColor: 'var(--text-secondary)' }} onPressEnter={() => { document.querySelector('.ant-modal-confirm-btns .ant-btn-primary')?.click(); }} />,
           okText: t('ui.contextMenu.newFile'),
           onOk: () => {
             const input = document.getElementById(inputId);
@@ -295,7 +295,7 @@ function TreeNode({ item, path, depth, onFileClick, expandedPaths, onToggleExpan
         const inputId = `ccv-newdir-${Date.now()}`;
         Modal.confirm({
           title: t('ui.contextMenu.newDir'),
-          content: <Input id={inputId} autoFocus placeholder="folder-name" style={{ background: '#141414', borderColor: '#2a2a2a', color: '#ccc', caretColor: '#ccc' }} onPressEnter={() => { document.querySelector('.ant-modal-confirm-btns .ant-btn-primary')?.click(); }} />,
+          content: <Input id={inputId} autoFocus placeholder="folder-name" style={{ background: 'var(--bg-container)', borderColor: 'var(--border-primary)', color: 'var(--text-secondary)', caretColor: 'var(--text-secondary)' }} onPressEnter={() => { document.querySelector('.ant-modal-confirm-btns .ant-btn-primary')?.click(); }} />,
           okText: t('ui.contextMenu.newDir'),
           onOk: () => {
             const input = document.getElementById(inputId);
@@ -441,7 +441,7 @@ export default function FileExplorer({ style, onClose, onFileClick, expandedPath
         const inputId = `ccv-newfile-root-${Date.now()}`;
         Modal.confirm({
           title: t('ui.contextMenu.newFile'),
-          content: <Input id={inputId} autoFocus placeholder="filename.ext" style={{ background: '#141414', borderColor: '#2a2a2a', color: '#ccc', caretColor: '#ccc' }} onPressEnter={() => { document.querySelector('.ant-modal-confirm-btns .ant-btn-primary')?.click(); }} />,
+          content: <Input id={inputId} autoFocus placeholder="filename.ext" style={{ background: 'var(--bg-container)', borderColor: 'var(--border-primary)', color: 'var(--text-secondary)', caretColor: 'var(--text-secondary)' }} onPressEnter={() => { document.querySelector('.ant-modal-confirm-btns .ant-btn-primary')?.click(); }} />,
           okText: t('ui.contextMenu.newFile'),
           onOk: () => {
             const input = document.getElementById(inputId);
@@ -462,7 +462,7 @@ export default function FileExplorer({ style, onClose, onFileClick, expandedPath
         const inputId = `ccv-newdir-root-${Date.now()}`;
         Modal.confirm({
           title: t('ui.contextMenu.newDir'),
-          content: <Input id={inputId} autoFocus placeholder="folder-name" style={{ background: '#141414', borderColor: '#2a2a2a', color: '#ccc', caretColor: '#ccc' }} onPressEnter={() => { document.querySelector('.ant-modal-confirm-btns .ant-btn-primary')?.click(); }} />,
+          content: <Input id={inputId} autoFocus placeholder="folder-name" style={{ background: 'var(--bg-container)', borderColor: 'var(--border-primary)', color: 'var(--text-secondary)', caretColor: 'var(--text-secondary)' }} onPressEnter={() => { document.querySelector('.ant-modal-confirm-btns .ant-btn-primary')?.click(); }} />,
           okText: t('ui.contextMenu.newDir'),
           onOk: () => {
             const input = document.getElementById(inputId);
@@ -526,12 +526,12 @@ export default function FileExplorer({ style, onClose, onFileClick, expandedPath
           maskClosable
           zIndex={1100}
           width="calc(100vw - 80px)"
-          title={<span style={{ color: '#e5e5e5', fontSize: 14 }}>{htmlPreviewPath.split('/').pop() || 'Preview'}</span>}
+          title={<span style={{ color: 'var(--text-primary)', fontSize: 14 }}>{htmlPreviewPath.split('/').pop() || 'Preview'}</span>}
           styles={{
-            header: { background: '#111', borderBottom: '1px solid #2a2a2a', padding: '12px 20px' },
+            header: { background: 'var(--bg-container)', borderBottom: '1px solid var(--border-primary)', padding: '12px 20px' },
             body: { background: '#fff', height: 'calc(100vh - 160px)', overflow: 'hidden', padding: 0 },
             mask: { background: 'rgba(0,0,0,0.7)' },
-            content: { background: '#111', border: '1px solid #2a2a2a', borderRadius: 8, padding: 0 },
+            content: { background: 'var(--bg-container)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: 0 },
           }}
           centered
         >

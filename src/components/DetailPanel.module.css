@@ -15,7 +15,7 @@
 
 .urlSection {
   padding: 12px 0;
-  border-bottom: 1px solid #1e1e1e;
+  border-bottom: 1px solid var(--border-primary);
   display: flex;
   align-items: flex-start;
 }
@@ -34,7 +34,7 @@
 
 .tokenGrid {
   display: flex;
-  border: 1px solid #303030;
+  border: 1px solid var(--border-secondary);
   border-radius: 6px;
   overflow: hidden;
   min-width: 360px;
@@ -51,11 +51,11 @@
 }
 
 .tokenRowBorder {
-  border-top: 1px solid #303030;
+  border-top: 1px solid var(--border-secondary);
 }
 
 .tokenLabel {
-  color: #888;
+  color: var(--text-tertiary);
   padding: 4px 8px;
   white-space: nowrap;
   font-weight: 600;
@@ -63,7 +63,7 @@
 
 .tokenTd {
   flex: 1;
-  color: #e5e5e5;
+  color: var(--text-primary);
   text-align: right;
   padding: 4px 8px;
   font-family: monospace;
@@ -75,26 +75,26 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #e5e5e5;
+  color: var(--text-primary);
   padding: 4px 8px;
   font-family: monospace;
   white-space: nowrap;
-  border-left: 1px solid #303030;
+  border-left: 1px solid var(--border-secondary);
   min-width: 100px;
 }
 
 .tokenHitRateLabel {
-  color: #888;
+  color: var(--text-tertiary);
   font-size: 10px;
   font-family: sans-serif;
 }
 
 .tokenRowBorder td {
-  border-top: 1px solid #303030;
+  border-top: 1px solid var(--border-secondary);
 }
 
 .urlText {
-  color: #e5e5e5;
+  color: var(--text-primary);
   font-size: 13px;
   margin-bottom: 8px;
   word-break: break-all;
@@ -111,7 +111,7 @@
 .headerRow {
   display: flex;
   padding: 4px 0;
-  border-bottom: 1px solid #1e1e1e;
+  border-bottom: 1px solid var(--border-primary);
 }
 
 .headerKey {
@@ -126,9 +126,9 @@
 
 .streamingBox {
   padding: 20px;
-  background: #1e1e1e;
+  background: var(--bg-elevated);
   border-radius: 6px;
-  border: 1px solid #2a2a2a;
+  border: 1px solid var(--border-primary);
 }
 
 .bodyToolbar {
@@ -138,12 +138,12 @@
 }
 
 .rawTextPre {
-  background: #0d1117;
-  border: 1px solid #2a2a2a;
+  background: var(--bg-code-dark);
+  border: 1px solid var(--border-primary);
   border-radius: 6px;
   padding: 12px;
   font-size: 12px;
-  color: #e5e5e5;
+  color: var(--text-primary);
   overflow: auto;
   max-height: 600px;
   white-space: pre-wrap;
@@ -151,7 +151,7 @@
 }
 
 .tabContent {
-  padding: 12px 0;
+  padding: 0;
 }
 
 .collapseSpacing {
@@ -189,9 +189,9 @@
   align-items: center;
   height: 26px;
   border-radius: 13px;
-  border: 1px solid #444;
+  border: 1px solid var(--border-light);
   background: #00000000;
-  color: #888;
+  color: var(--text-tertiary);
   cursor: pointer;
   font-size: 12px;
   transition: all 0.2s;
@@ -200,9 +200,9 @@
 }
 
 .viewInChatBtn:hover {
-  border-color: #666;
-  color: #e5e5e5;
-  background: #ffffff0a;
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+  background: var(--overlay-light-faint);
 }
 
 .reminderSelect {
@@ -212,7 +212,7 @@
 
 .reminderSelect :global(.ant-select-selector.ant-select-selector) {
   border-radius: 2px;
-  border-color: #444;
+  border-color: var(--border-light);
   background: #00000000;
   min-height: 26px;
   height: auto;
@@ -241,7 +241,7 @@
 }
 
 .reminderLabel {
-  color: #888;
+  color: var(--text-tertiary);
   font-size: 12px;
   font-family: monospace;
 }
@@ -260,7 +260,7 @@
 .userPromptItem {
   padding: 4px 8px;
   font-size: 12px;
-  color: #ccc;
+  color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
@@ -271,9 +271,9 @@
 .userPromptNavBtn {
   margin-left: auto;
   font-size: 11px;
-  color: #1668dc;
+  color: var(--color-primary);
   cursor: pointer;
-  border: 1px solid #1668dc;
+  border: 1px solid var(--color-primary);
   border-radius: 3px;
   padding: 1px 6px;
   white-space: nowrap;
@@ -291,23 +291,23 @@
   align-items: center;
   font-size: 12px;
   font-family: monospace;
-  color: #aaa;
+  color: var(--text-light);
   margin-bottom: 12px;
   flex-shrink: 0;
 }
 
 .cacheTokenWrite {
-  color: #d97757;
+  color: var(--color-code-orange);
 }
 
 .cacheTokenRead {
-  color: #22c55e;
+  color: var(--color-success);
 }
 
 .cacheCopyIcon {
   margin-left: 8px;
   cursor: pointer;
-  color: #888;
+  color: var(--text-tertiary);
   transition: color 0.2s;
 }
 
@@ -324,7 +324,7 @@
 .cacheSectionHeader {
   font-size: 13px;
   font-weight: 600;
-  color: #e5e5e5;
+  color: var(--text-primary);
   margin-bottom: 6px;
   cursor: pointer;
   user-select: none;
@@ -344,9 +344,9 @@
   word-break: break-word;
   font-size: 12px;
   line-height: 1.5;
-  color: #ccc;
-  background: #111;
-  border: 1px solid #2a2a2a;
+  color: var(--text-secondary);
+  background: var(--bg-container);
+  border: 1px solid var(--border-primary);
   border-radius: 4px;
   padding: 8px;
   margin: 4px 0;
@@ -367,9 +367,9 @@
   word-break: break-word;
   font-size: 12px;
   line-height: 1.5;
-  color: #ccc;
-  background: #060f2a;
-  border: 1px solid #0b2a5c;
+  color: var(--text-secondary);
+  background: var(--bg-code-system);
+  border: 1px solid var(--border-code-system);
   border-radius: 4px;
   padding: 8px;
   margin: 4px 0;

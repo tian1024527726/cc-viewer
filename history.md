@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.6.113 (2026-04-07)
+
+- Feat: light theme (Standard White) — full CSS variable system with `[data-theme]` switching
+- Feat: all 31 component CSS modules converted to CSS variables (backgrounds, borders, text colors)
+- Feat: Ant Design ConfigProvider switches between darkAlgorithm / defaultAlgorithm based on theme
+- Feat: CodeMirror light theme with custom HighlightStyle for file content viewer
+- Feat: xterm terminal light theme with ANSI 16-color palette
+- Feat: react-json-view-lite conditionally uses lightStyles / darkStyles
+- Feat: teammate SVGs adapted for both dark and light backgrounds
+- Feat: global.css root CSS variables define ~50 semantic color tokens for dark/light themes
+- UI: all inline styles in JSX converted to CSS variable references
+
 ## 1.6.112 (2026-04-06)
 
 - Fix: ExitPlanMode approval status not updating after permission denial — status stayed "pending" with buttons visible
