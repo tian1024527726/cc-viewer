@@ -156,6 +156,8 @@ export function restoreSlimmedEntry(entry, requests) {
   if (fullEntry.body.messages.length < entry._messageCount) return entry;
   return {
     ...entry,
+    _slimmed: false,
+    _fullEntryIndex: undefined,
     body: {
       ...entry.body,
       messages: fullEntry.body.messages.slice(0, entry._messageCount),

@@ -3,6 +3,8 @@
  * Pure function, no React/state dependencies.
  */
 
+import { restoreSlimmedEntry } from './entry-slim.js';
+
 // 从 requests 中提取 Team 会话列表
 export function extractTeamSessions(requests) {
   const teams = [];
@@ -12,7 +14,8 @@ export function extractTeamSessions(requests) {
   // 搜索窗口扩大到 10 以应对空行/非主agent请求插入导致的距离增大
   function findToolResult(toolUseId, fromRequestIdx) {
     for (let j = fromRequestIdx + 1; j < requests.length && j <= fromRequestIdx + 10; j++) {
-      const msgs = requests[j]?.body?.messages;
+      const entry = requests[j]?._slimmed ? restoreSlimmedEntry(requests[j], requests) : requests[j];
+      const msgs = entry?.body?.messages;
       if (!Array.isArray(msgs)) continue;
       for (const msg of msgs) {
         const blocks = msg.role === 'user' && Array.isArray(msg.content) ? msg.content : [];

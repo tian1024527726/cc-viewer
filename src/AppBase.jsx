@@ -12,7 +12,7 @@ import { saveEntries, loadEntries, clearEntries, getCacheMeta, saveSessionEntrie
 import { buildSessionIndex, splitHotCold, mergeSessionIndices, HOT_SESSION_COUNT } from './utils/sessionManager';
 import { mergeMainAgentSessions as _mergeMainAgentSessions } from './utils/sessionMerge';
 import { reconstructEntries } from '../lib/delta-reconstructor.js';
-import { createEntrySlimmer, createIncrementalSlimmer } from './utils/entry-slim.js';
+import { createEntrySlimmer, createIncrementalSlimmer, restoreSlimmedEntry } from './utils/entry-slim.js';
 import styles from './App.module.css';
 
 export { styles };
@@ -99,8 +99,8 @@ class AppBase extends React.Component {
     this._cacheLossShowAll = undefined;
     // 增量维护的 KV-Cache 缓存内容（稳定引用，不受 inProgress 闪烁影响）
     this._lastKvCacheContent = null;
-    // P0 perf: 实时 SSE 增量剪枝（默认关闭，localStorage ccv_sseSlim=true 启用）
-    this._sseSlimEnabled = !isMobile && localStorage.getItem('ccv_sseSlim') === 'true';
+    // P0 perf: 实时 SSE 增量剪枝（全平台默认开启，localStorage ccv_sseSlim=false 可关闭）
+    this._sseSlimEnabled = localStorage.getItem('ccv_sseSlim') !== 'false';
     this._sseSlimmer = null;
   }
 
@@ -289,9 +289,12 @@ class AppBase extends React.Component {
               // P1: 缓存恢复也做 hot/cold 分层，避免全量数据驻留内存
               if (mainAgentSessions.length > HOT_SESSION_COUNT) {
                 const sessionIndex = buildSessionIndex(cached, mainAgentSessions);
+                // slimmer 全平台：split 前还原 slimmed entries，确保 IndexedDB / hot 数据完整
+                const unslimmed = cached.map(e => e._slimmed ? restoreSlimmedEntry(e, cached) : e);
                 const { hotEntries, allSessions } = splitHotCold(
-                  cached, mainAgentSessions, sessionIndex, HOT_SESSION_COUNT
+                  unslimmed, mainAgentSessions, sessionIndex, HOT_SESSION_COUNT
                 );
+                this._sseSlimmer = null; // 重置，下帧 SSE 重建
                 const hotFiltered = hotEntries.filter(e => isRelevantRequest(e));
                 // 计算 _oldestTs 供"加载更多"使用
                 this._oldestTs = hotEntries.length > 0 ? hotEntries[0].timestamp : null;
@@ -450,9 +453,11 @@ class AppBase extends React.Component {
         if (isMobile && mainAgentSessions.length > HOT_SESSION_COUNT) {
           const sessionIndex = buildSessionIndex(merged, mainAgentSessions);
           const fullIndex = mergeSessionIndices(this.state.sessionIndex, sessionIndex);
+          const unslimmed = merged.map(e => e._slimmed ? restoreSlimmedEntry(e, merged) : e);
           const { hotEntries, allSessions, coldGroups } = splitHotCold(
-            merged, mainAgentSessions, fullIndex, HOT_SESSION_COUNT
+            unslimmed, mainAgentSessions, fullIndex, HOT_SESSION_COUNT
           );
+          this._sseSlimmer = null;
           const pn = this.state.projectName;
           if (pn) {
             for (const [sid, coldEntries] of coldGroups) {
@@ -619,9 +624,11 @@ class AppBase extends React.Component {
             const fullIndex = isIncremental
               ? mergeSessionIndices(this.state.sessionIndex, sessionIndex)
               : sessionIndex;
+            const unslimmed = entries.map(e => e._slimmed ? restoreSlimmedEntry(e, entries) : e);
             const { hotEntries, allSessions, coldGroups } = splitHotCold(
-              entries, mainAgentSessions, fullIndex, HOT_SESSION_COUNT
+              unslimmed, mainAgentSessions, fullIndex, HOT_SESSION_COUNT
             );
+            this._sseSlimmer = null;
             // 冷 session entries 异步写入 IndexedDB
             const pn = this.state.projectName;
             if (pn) {
@@ -1043,10 +1050,12 @@ class AppBase extends React.Component {
         const sessionIndex = buildSessionIndex(merged, mainAgentSessions);
         const fullIndex = mergeSessionIndices(this.state.sessionIndex, sessionIndex);
         // Fix #3: pin 加载的 session，防止 splitHotCold 立即淘汰
+        const unslimmed = merged.map(e => e._slimmed ? restoreSlimmedEntry(e, merged) : e);
         const { hotEntries, allSessions, coldGroups } = splitHotCold(
-          merged, mainAgentSessions, fullIndex, HOT_SESSION_COUNT,
+          unslimmed, mainAgentSessions, fullIndex, HOT_SESSION_COUNT,
           new Set([sessionId])
         );
+        this._sseSlimmer = null;
         const pn = this.state.projectName;
         if (pn) {
           for (const [sid, coldEntries] of coldGroups) {
@@ -1076,9 +1085,11 @@ class AppBase extends React.Component {
     const { requests, mainAgentSessions, projectName } = this.state;
     if (!isMobile || mainAgentSessions.length <= HOT_SESSION_COUNT) return;
 
+    const unslimmed = requests.map(e => e._slimmed ? restoreSlimmedEntry(e, requests) : e);
     const { hotEntries, allSessions, coldGroups } = splitHotCold(
-      requests, mainAgentSessions, this.state.sessionIndex, HOT_SESSION_COUNT
+      unslimmed, mainAgentSessions, this.state.sessionIndex, HOT_SESSION_COUNT
     );
+    this._sseSlimmer = null;
     const fullIndex = this.state.sessionIndex;
     if (projectName) {
       for (const [sid, coldEntries] of coldGroups) {

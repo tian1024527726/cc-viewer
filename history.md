@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.120 (2026-04-08)
+
+- Perf: SSE entry slimmer enabled on all platforms (previously desktop-only) — reduces within-session memory from O(n²) to O(n)
+- Perf: un-slim entries before hot/cold splitHotCold to preserve IndexedDB data integrity
+- Fix: restoreSlimmedEntry clears \_slimmed/\_fullEntryIndex flags to prevent stale index corruption after array reorganization
+- Fix: iPadOS 13+ detection via maxTouchPoints — iPad now correctly treated as mobile (hot/cold + Virtuoso + memory limits)
+- Fix: Team panel restoreSlimmedEntry protection for findToolResult, strategy-2 user message extraction, and teammate message extraction
+
 ## 1.6.119 (2026-04-08)
 
 - Perf: renderMarkdown LRU cache (1024) — eliminates 5000+ redundant DOMPurify.sanitize calls per render cycle

@@ -4,6 +4,7 @@
  */
 
 import { classifyUserContent, isSystemText, isMainAgent } from './contentFilter';
+import { restoreSlimmedEntry } from './entry-slim.js';
 import { classifyRequest, formatRequestTag, formatTeammateLabel } from './requestType';
 import { getModelInfo } from './helpers';
 import { getTeammateAvatar } from './teammateAvatars';
@@ -67,7 +68,8 @@ export function buildTeamModalData(team, requests, mainAgentSessions) {
 
   // 策略 2：从 TeamCreate request 的 body.messages 直接提取
   if (!hasUserMsg) {
-    const tcReq = requests[team.requestIndex];
+    const tcRaw = requests[team.requestIndex];
+    const tcReq = tcRaw?._slimmed ? restoreSlimmedEntry(tcRaw, requests) : tcRaw;
     const tcMsgs = tcReq?.body?.messages || [];
     for (let m = tcMsgs.length - 1; m >= 0; m--) {
       if (tcMsgs[m].role !== 'user') continue;
@@ -294,7 +296,8 @@ export function buildTeamModalData(team, requests, mainAgentSessions) {
   const seenTmMsg = new Set();
   teamAgents.forEach(ag => { ag.teammateMessages = []; });
   for (let i = 0; i < teamRequests.length; i++) {
-    const req = teamRequests[i];
+    const raw = teamRequests[i];
+    const req = raw?._slimmed ? restoreSlimmedEntry(raw, requests) : raw;
     const msgs = req.body?.messages || [];
     for (const m of msgs) {
       if (m.role !== 'user' || !Array.isArray(m.content)) continue;
