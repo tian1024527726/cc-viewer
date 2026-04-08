@@ -184,6 +184,16 @@ export async function spawnClaude(proxyPort, cwd, extraArgs = [], claudePath = n
     flushBatch();
     lastExitCode = exitCode;
     ptyProcess = null;
+
+    // Auto-retry without -c/--continue if "No conversation found"
+    const hasContinue = extraArgs.includes('-c') || extraArgs.includes('--continue');
+    if (hasContinue && exitCode !== 0 && outputBuffer.includes('No conversation found')) {
+      console.error('[CC Viewer] -c failed (no conversation), retrying without -c');
+      const retryArgs = extraArgs.filter(a => a !== '-c' && a !== '--continue');
+      spawnClaude(proxyPort, cwd, retryArgs, claudePath, isNpmVersion, serverPort);
+      return;
+    }
+
     // 保留 lastWorkspacePath，不清除，用于 respawn
     currentWorkspacePath = null;
     for (const cb of exitListeners) {
