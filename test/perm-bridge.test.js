@@ -27,9 +27,12 @@ function runBridge(stdin, env = {}) {
 }
 
 describe('perm-bridge.js', () => {
-  it('exits 1 when CCVIEWER_PORT is not set', async () => {
-    const { code } = await runBridge('{}', { CCVIEWER_PORT: '' });
-    assert.equal(code, 1);
+  it('exits 0 silently when CCVIEWER_PORT is not set', async () => {
+    const { code, stdout } = await runBridge('{}', { CCVIEWER_PORT: '' });
+    assert.equal(code, 0);
+    const output = JSON.parse(stdout.trim());
+    assert.equal(output.continue, true);
+    assert.equal(output.suppressOutput, true);
   });
 
   it('exits 1 when stdin is invalid JSON', async () => {
