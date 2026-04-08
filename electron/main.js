@@ -19,11 +19,11 @@ const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
 
 // --- Resolve shell environment (Finder-launched Electron has minimal env) ---
-// When launched from Finder/dock, process.env lacks shell profile vars (HTTP_PROXY, LANG, etc.)
-// Spawn a login shell to capture the full environment, then inject missing vars.
-const _proxyVars = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy', 'no_proxy', 'NO_PROXY', 'ALL_PROXY', 'all_proxy', 'LANG'];
-const _hasProxyEnv = _proxyVars.some(k => process.env[k]);
-if (!_hasProxyEnv && process.platform !== 'win32') {
+// When launched from Finder/dock, process.env lacks shell profile vars (HTTP_PROXY, PATH, LANG, etc.)
+// Spawn a login shell to capture the full environment, then inject missing/enriched vars.
+const _shellVars = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy', 'no_proxy', 'NO_PROXY', 'ALL_PROXY', 'all_proxy', 'LANG'];
+const _hasShellEnv = _shellVars.some(k => process.env[k]);
+if (!_hasShellEnv && process.platform !== 'win32') {
   try {
     const _shell = process.env.SHELL || '/bin/zsh';
     // Use -i (interactive) to ensure .zshrc is loaded, not just .zprofile
@@ -32,36 +32,35 @@ if (!_hasProxyEnv && process.platform !== 'win32') {
       timeout: 5000,
       env: { ...process.env, TERM: process.env.TERM || 'xterm-256color' },
     });
+    let _shellPath = null;
     for (const line of _envOutput.split('\n')) {
       const eq = line.indexOf('=');
       if (eq <= 0) continue;
       const key = line.slice(0, eq);
       const val = line.slice(eq + 1);
-      if (_proxyVars.includes(key) && !process.env[key]) {
+      if (key === 'PATH') {
+        _shellPath = val; // Save for merging below
+      } else if (_shellVars.includes(key) && !process.env[key]) {
         process.env[key] = val;
+      }
+    }
+    // Merge shell PATH into process PATH (prepend shell paths for priority)
+    if (_shellPath) {
+      const existing = new Set((process.env.PATH || '').split(':'));
+      const merged = _shellPath.split(':').filter(p => !existing.has(p));
+      if (merged.length) {
+        process.env.PATH = _shellPath + ':' + process.env.PATH;
       }
     }
     if (process.env.HTTP_PROXY || process.env.HTTPS_PROXY) {
       console.error('[Electron] Injected proxy from shell profile:', process.env.HTTP_PROXY || process.env.HTTPS_PROXY);
-    } else {
-      console.error('[Electron] Shell env loaded but no proxy vars found');
     }
   } catch (err) {
     console.error('[Electron] Failed to resolve shell env:', err.message);
   }
 }
 
-// --- Resolve real Node.js path (Electron's process.execPath is the Electron binary) ---
-let _nodePath = process.execPath;
-if (process.versions.electron) {
-  try {
-    _nodePath = execSync(process.platform === 'win32' ? 'where node' : 'which node', { encoding: 'utf-8' }).trim();
-    if (process.platform === 'win32') _nodePath = _nodePath.split('\n')[0].trim(); // `where` may return multiple lines
-  } catch { _nodePath = process.platform === 'win32' ? 'node' : '/usr/local/bin/node'; }
-}
-
-// --- Claude detection (once at startup) ---
-// Ensure PATH includes common node/npm binary locations (Electron may have limited PATH)
+// --- Ensure PATH includes common node/npm binary locations ---
 const home = app.getPath('home');
 const pathDirs = (process.env.PATH || '').split(':');
 const extraPaths = ['/usr/local/bin', '/opt/homebrew/bin', join(home, '.npm-global', 'bin'), join(home, '.nvm', 'versions', 'node')];
@@ -69,6 +68,15 @@ for (const p of extraPaths) {
   if (!pathDirs.includes(p)) pathDirs.push(p);
 }
 process.env.PATH = pathDirs.join(':');
+
+// --- Resolve real Node.js path (Electron's process.execPath is the Electron binary) ---
+let _nodePath = process.execPath;
+if (process.versions.electron) {
+  try {
+    _nodePath = execSync(process.platform === 'win32' ? 'where node' : 'which node', { encoding: 'utf-8' }).trim();
+    if (process.platform === 'win32') _nodePath = _nodePath.split('\n')[0].trim();
+  } catch { _nodePath = process.platform === 'win32' ? 'node' : '/usr/local/bin/node'; }
+}
 
 const { resolveNpmClaudePath, resolveNativePath } = await import(join(rootDir, 'findcc.js'));
 let claudePath = resolveNpmClaudePath();
