@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useEffect, useCallback, useState } from 'react'
 import { t } from '../i18n';
 import styles from './ToolApprovalPanel.module.css';
 
-const DEFAULT_AUTO_SECONDS = 10;
+const DEFAULT_AUTO_SECONDS = 3;
 
 function ToolApprovalPanel({ toolName, toolInput, requestId, onAllow, onAllowSession, onDeny, visible, global: isGlobal, autoApproveSeconds = 0, onAutoApproveChange }) {
   const panelRef = useRef(null);
