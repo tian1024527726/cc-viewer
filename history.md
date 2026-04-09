@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.134 (2026-04-09)
+
+- Change: auto-approve default countdown 10s → 3s (enabling auto-approve should feel fast; dropdown still offers 5/10/15/20/30/60s)
+
 ## 1.6.131 (2026-04-09)
 
 - Feat: terminal panel focus border animation (4px + box-shadow glow, 0.3s ease-out)
