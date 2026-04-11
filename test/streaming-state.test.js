@@ -1,3 +1,6 @@
+// 必须在 import interceptor.js 之前设置，阻止模块顶层启动 server / setupInterceptor
+process.env.CCV_PROXY_MODE = '1';
+
 import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { unwatchFile } from 'node:fs';
