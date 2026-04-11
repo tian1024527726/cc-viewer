@@ -1,7 +1,19 @@
-import { describe, it, after } from 'node:test';
+// 必须在 import interceptor.js 之前设置，阻止模块顶层启动 server / setupInterceptor
+// 注意：ESM 静态 import 会被提升，process.env 赋值必须在动态 import() 之前
+process.env.CCV_PROXY_MODE = '1';
+
+import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { unwatchFile } from 'node:fs';
-import { streamingState, resetStreamingState, PROFILE_PATH } from '../interceptor.js';
+
+let streamingState, resetStreamingState, PROFILE_PATH;
+
+before(async () => {
+  const mod = await import('../interceptor.js');
+  streamingState = mod.streamingState;
+  resetStreamingState = mod.resetStreamingState;
+  PROFILE_PATH = mod.PROFILE_PATH;
+});
 
 // interceptor.js 模块顶层 watchFile(PROFILE_PATH) 会阻止进程退出
 after(() => { try { unwatchFile(PROFILE_PATH); } catch {} });
