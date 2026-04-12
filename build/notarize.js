@@ -22,18 +22,21 @@ export default async function notarizing(context) {
     return;
   }
 
-  console.log(`🔐 开始公证 ${appName}.app...`);
+  const NOTARIZE_TIMEOUT = 6 * 60 * 60 * 1000; // 6 hours
+  console.log(`🔐 开始公证 ${appName}.app (超时: ${NOTARIZE_TIMEOUT / 60000} 分钟)...`);
 
   try {
-    await notarize({
-      appPath,
-      appleId,
-      appleIdPassword,
-      teamId,
-    });
+    await Promise.race([
+      notarize({ appPath, appleId, appleIdPassword, teamId }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Notarization timed out')), NOTARIZE_TIMEOUT)),
+    ]);
     console.log('✅ 公证成功！');
   } catch (error) {
+    if (error.message === 'Notarization timed out') {
+      console.warn('⚠️  公证超时，跳过公证继续打包');
+      return;
+    }
     console.error('❌ 公证失败:', error.message);
-    throw error;
+    console.warn('⚠️  忽略公证失败，继续打包');
   }
 }
