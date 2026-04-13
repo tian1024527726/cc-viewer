@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.150 (2026-04-13)
+
+- Feat: iPad/tablet mode (`?ipad=1`) — Mobile layout with PC-level text scaling and interactions
+- Feat: iPad mode enables hover, desktop terminal font/scrollback, file explorer, ResizeObserver
+- Fix: notarize timeout reduced to 45min (within CI 60min step limit)
+
 ## 1.6.149 (2026-04-13)
 
 - Fix: ImageLightbox auto-fit — small images now scale up to fill viewport on open

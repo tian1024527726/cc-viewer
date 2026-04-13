@@ -8,7 +8,7 @@ import { Unicode11Addon } from '@xterm/addon-unicode11';
 import '@xterm/xterm/css/xterm.css';
 import { t } from '../i18n';
 import { apiUrl } from '../utils/apiUrl';
-import { isMobile, isIOS } from '../env';
+import { isMobile, isIOS, isPad } from '../env';
 import styles from './TerminalPanel.module.css';
 import { BUILTIN_PRESETS } from '../utils/builtinPresets.js';
 import { buildLocalUltraplan } from '../utils/ultraplanTemplates';
@@ -205,11 +205,11 @@ class TerminalPanel extends React.Component {
       cursorStyle: 'bar',
       cursorWidth: 1,
       cursorInactiveStyle: 'none',
-      fontSize: isMobile ? 11 : 13,
+      fontSize: (isMobile && !isPad) ? 11 : 13,
       fontFamily: 'Menlo, Monaco, "Courier New", monospace',
       theme: isDark ? darkTerminalTheme : lightTerminalTheme,
       allowProposedApi: true,
-      scrollback: isIOS ? 200 : isMobile ? 1000 : 3000,
+      scrollback: isPad ? 3000 : isIOS ? 200 : isMobile ? 1000 : 3000,
       smoothScrollDuration: 0,
       scrollOnUserInput: true,
     });
@@ -243,7 +243,7 @@ class TerminalPanel extends React.Component {
     this._writeBuffer = '';
     this._writeTimer = null;
 
-    if (isMobile) {
+    if (isMobile && !isPad) {
       // 移动端：基于屏幕尺寸一次性计算固定 cols/rows，避免动态 fit 导致渲染抖动
       requestAnimationFrame(() => {
         this._mobileFixedResize();
@@ -502,8 +502,8 @@ class TerminalPanel extends React.Component {
   }
 
   setupResizeObserver() {
-    // 移动端使用固定尺寸，不需要 ResizeObserver
-    if (isMobile) return;
+    // 移动端使用固定尺寸，不需要 ResizeObserver（iPad 例外，走动态 fit）
+    if (isMobile && !isPad) return;
 
     this.resizeObserver = new ResizeObserver(() => {
       if (this._resizeDebounceTimer) clearTimeout(this._resizeDebounceTimer);
@@ -717,7 +717,7 @@ class TerminalPanel extends React.Component {
       this.ws.send(JSON.stringify({ type: 'input', data: seq }));
     }
     // 手机上不 focus 终端，避免弹出系统软键盘；主动 blur 防止先前已聚焦
-    if (isMobile) {
+    if (isMobile && !isPad) {
       const ta = this.containerRef.current?.querySelector('.xterm-helper-textarea');
       if (ta) ta.blur();
     } else {
@@ -769,7 +769,7 @@ class TerminalPanel extends React.Component {
         this.ws.send(JSON.stringify({ type: 'image-upload-notify', path, source: 'terminal' }));
       }
       // refocus terminal after upload (skip on mobile to avoid system keyboard popup)
-      if (!isMobile && this.terminal) this.terminal.focus();
+      if ((!isMobile || isPad) && this.terminal) this.terminal.focus();
     } catch (err) {
       console.error('[CC Viewer] Upload failed:', err);
     }
@@ -898,7 +898,7 @@ class TerminalPanel extends React.Component {
       // 用 bracket paste mode 包裹，让终端识别为一次粘贴，可整体删除
       this.ws.send(JSON.stringify({ type: 'input', data: `\x1b[200~${description}\x1b[201~` }));
     }
-    if (!isMobile && this.terminal) this.terminal.focus();
+    if ((!isMobile || isPad) && this.terminal) this.terminal.focus();
   };
 
   handleUltraplanSend = () => {
@@ -911,7 +911,7 @@ class TerminalPanel extends React.Component {
     if (assembled && this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type: 'input', data: `\x1b[200~${assembled}\x1b[201~\r` }));
     }
-    if (!isMobile && this.terminal) this.terminal.focus();
+    if ((!isMobile || isPad) && this.terminal) this.terminal.focus();
   };
 
   handleUltraplanUpload = async () => {
@@ -970,7 +970,7 @@ class TerminalPanel extends React.Component {
       this.ws.send(JSON.stringify({ type: 'input', data: prompt + '\r' }));
       message.success('需要重启 Claude Code 才能生效');
     }
-    if (!isMobile && this.terminal) this.terminal.focus();
+    if ((!isMobile || isPad) && this.terminal) this.terminal.focus();
   };
 
   render() {
@@ -1002,7 +1002,7 @@ class TerminalPanel extends React.Component {
           </div>
         )}
         <input type="file" ref={this.fileInputRef} className={styles.hiddenFileInput} onChange={this.handleFileUpload} />
-        {!isMobile && (
+        {(!isMobile || isPad) && (
           <div className={styles.terminalToolbar}>
             <button className={styles.toolbarBtn} onClick={() => this.fileInputRef.current?.click()} title={t('ui.terminal.upload')}>
               <UploadIcon />
@@ -1147,7 +1147,7 @@ class TerminalPanel extends React.Component {
             </button>
           </div>
         )}
-        {isMobile && (
+        {(isMobile && !isPad) && (
           <div className={styles.virtualKeybar}>
             {VIRTUAL_KEYS.map(k => (
               <button

@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { Tooltip, message } from 'antd';
 import { CopyOutlined, DownloadOutlined } from '@ant-design/icons';
 import { renderMarkdown } from '../utils/markdown';
-import { isMobile } from '../env';
+import { isMobile, isPad } from '../env';
 import { t } from '../i18n';
 import styles from './MarkdownBlock.module.css';
 
@@ -63,15 +63,15 @@ function MarkdownBlock({ text, className, style }) {
   return (
     <div
       className={styles.mdBlockWrapper}
-      onMouseEnter={isMobile ? undefined : handleMouseEnter}
-      onMouseLeave={isMobile ? undefined : handleMouseLeave}
+      onMouseEnter={(isMobile && !isPad) ? undefined : handleMouseEnter}
+      onMouseLeave={(isMobile && !isPad) ? undefined : handleMouseLeave}
     >
       <div
         className={`chat-md ${className || ''}`}
         style={style}
         dangerouslySetInnerHTML={{ __html: html }}
       />
-      {!isMobile && hovered && (
+      {(!isMobile || isPad) && hovered && (
         <div className={styles.actionBar}>
           <Tooltip title={t('ui.copy')} mouseEnterDelay={0.3}>
             <span className={styles.actionBtn} onClick={handleCopy}>

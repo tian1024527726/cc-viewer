@@ -2,7 +2,7 @@ import React from 'react';
 import { ConfigProvider, Spin, Button, Badge, Switch, Select } from 'antd';
 import { BranchesOutlined, DownloadOutlined, DeleteOutlined, RollbackOutlined, ReloadOutlined } from '@ant-design/icons';
 import AppBase, { styles } from './AppBase';
-import { isIOS } from './env';
+import { isIOS, isPad } from './env';
 import { isMainAgent, isSystemText, classifyUserContent } from './utils/contentFilter';
 import ChatView from './components/ChatView';
 import TerminalPanel from './components/TerminalPanel';
@@ -42,7 +42,7 @@ class Mobile extends AppBase {
     // iOS 虚拟键盘弹出时，Safari 会滚动整个文档将页面上推，
     // 导致导航栏消失在视口之外。通过 visualViewport 的 resize + scroll
     // 事件同步可见区域的高度和偏移，用 fixed 定位将布局锁定在可见区域内。
-    if (isIOS && window.visualViewport) {
+    if (isIOS && !isPad && window.visualViewport) {
       this._onVisualViewportChange = () => {
         const el = this._layoutRef.current;
         if (!el) return;

@@ -145,6 +145,11 @@
   }
 }
 
+/* ─── iPad/Pad 模式：恢复桌面默认值 ─── */
+:global(html.pad-mode) .stickyBottomBtn { right: 0; left: auto; padding: 8px 18px; font-size: 12px; }
+:global(html.pad-mode) .stickyBottomBtn span { padding: 2px 10px; border-radius: 10px; }
+:global(html.pad-mode) .stickyBottomBtn svg { width: auto; height: auto; }
+
 .loadMoreWrap {
   display: flex;
   justify-content: center;

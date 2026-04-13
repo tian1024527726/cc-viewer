@@ -140,3 +140,12 @@
   .modalBody code { font-size: 12px; }
   .modalBody textarea { font-size: 12px; }
 }
+
+/* ─── iPad/Pad 模式：恢复桌面默认值 ─── */
+:global(html.pad-mode) .modalBody { font-size: 14px; line-height: 1.75; max-height: 60vh; }
+:global(html.pad-mode) .modalBody h1 { font-size: 1.8em; }
+:global(html.pad-mode) .modalBody h2 { font-size: 1.5em; }
+:global(html.pad-mode) .modalBody h3 { font-size: 1.25em; }
+:global(html.pad-mode) .modalBody pre { font-size: 13px; padding: 14px 18px; }
+:global(html.pad-mode) .modalBody code { font-size: 0.9em; }
+:global(html.pad-mode) .modalBody textarea { font-size: 13px; }

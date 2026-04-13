@@ -445,6 +445,26 @@
 
 }
 
+/* ─── iPad/Pad 模式：恢复桌面默认值 ─── */
+:global(html.pad-mode) .chatInputBar { padding: 8px 16px 12px; }
+:global(html.pad-mode) .chatInputWrapper { border-radius: 16px; }
+:global(html.pad-mode) .chatTextarea { min-height: 22px; max-height: 120px; padding: 12px 14px 4px; font-size: 14px; }
+:global(html.pad-mode) .ghostText { padding: 12px 14px 4px; font-size: 14px; }
+:global(html.pad-mode) .chatInputBottom { padding: 4px 6px 6px; gap: 4px; }
+:global(html.pad-mode) .plusBtn { width: 28px; height: 28px; }
+:global(html.pad-mode) .plusBtn svg { width: 16px; height: 16px; }
+:global(html.pad-mode) .plusMenu { bottom: 36px; }
+:global(html.pad-mode) .plusMenuItem { padding: 8px 12px; font-size: 13px; }
+:global(html.pad-mode) .chatInputHint { font-size: 11px; }
+:global(html.pad-mode) .sendBtn { width: 28px; height: 28px; }
+:global(html.pad-mode) .sendBtn svg { width: 16px; height: 16px; }
+:global(html.pad-mode) .imagePreviewStrip { gap: 8px; padding: 8px 14px 0; }
+:global(html.pad-mode) .imagePreviewItem { width: 48px; height: 48px; border-radius: 6px; }
+:global(html.pad-mode) .imagePreviewRemove { width: 16px; height: 16px; font-size: 12px; opacity: 0; }
+:global(html.pad-mode) .filePreviewChip { padding: 6px 10px; gap: 6px; border-radius: 8px; max-width: 200px; }
+:global(html.pad-mode) .filePreviewName { font-size: 12px; }
+:global(html.pad-mode) .filePreviewClose { width: 16px; height: 16px; font-size: 12px; }
+
 /* ─── Streaming border animation ─── */
 
 .chatInputWrapper.streaming,

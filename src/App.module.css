@@ -424,6 +424,14 @@
   transform-origin: top left;
 }
 
+/* ─── iPad/Pad 模式：取消 0.6 缩放，保持 PC 比例 ─── */
+:global(html.pad-mode) .mobileChatInner {
+  zoom: 1;
+}
+:global(html.pad-mode) .mobileGitDiffInner {
+  zoom: 1;
+}
+
 .mobileMenuBtn {
   background: none;
   border: none;

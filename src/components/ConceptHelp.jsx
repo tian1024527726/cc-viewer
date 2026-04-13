@@ -3,7 +3,7 @@ import { Modal, Spin } from 'antd';
 import { renderMarkdown } from '../utils/markdown';
 import { apiUrl } from '../utils/apiUrl';
 import { getLang } from '../i18n';
-import { isMobile } from '../env';
+import { isMobile, isPad } from '../env';
 import styles from './ConceptHelp.module.css';
 
 const KNOWN_DOCS = new Set([
@@ -55,7 +55,7 @@ export default function ConceptHelp({ doc, zIndex }) {
     setLoading(false);
   }, [doc]);
 
-  const modalStyles = isMobile ? {
+  const modalStyles = (isMobile && !isPad) ? {
     header: { padding: '8px 12px', margin: 0 },
     body: { maxHeight: '80vh', overflow: 'auto', padding: '8px 10px' },
     content: { padding: 0 },
@@ -76,8 +76,8 @@ export default function ConceptHelp({ doc, zIndex }) {
           open={open}
           onCancel={() => setOpen(false)}
           footer={null}
-          width={isMobile ? '98vw' : 800}
-          centered={isMobile}
+          width={(isMobile && !isPad) ? '98vw' : 800}
+          centered={isMobile && !isPad}
           styles={modalStyles}
           {...(zIndex ? { zIndex } : {})}
           wrapProps={{ onMouseDown: (e) => e.stopPropagation() }}

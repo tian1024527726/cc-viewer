@@ -1137,3 +1137,19 @@
     font-size: 18px;
   }
 }
+
+/* ─── iPad/Pad 模式：恢复桌面默认值 ─── */
+:global(html.pad-mode) .simplifiedToolPopoverContent { max-width: 520px; max-height: 360px; }
+:global(html.pad-mode) .askQuestionBox { padding: 8px 12px; font-size: 12px; }
+:global(html.pad-mode) .askQuestionHeader { font-size: 10px; padding: 1px 6px; }
+:global(html.pad-mode) .askQuestionText { font-size: 13px; margin-bottom: 4px; }
+:global(html.pad-mode) .askOptionItem { font-size: 12px; padding: 1px 0; gap: 4px; }
+:global(html.pad-mode) .askQuestionInteractive { padding: 8px 12px; font-size: 12px; }
+:global(html.pad-mode) .askRadioGroup { gap: 2px; }
+:global(html.pad-mode) .askRadioItem { font-size: 12px; padding: 3px 0; gap: 6px; min-height: auto; }
+:global(html.pad-mode) .askRadioDot { font-size: 13px; }
+:global(html.pad-mode) .askRadioGroup :global(.ant-radio-wrapper),
+:global(html.pad-mode) .askCheckboxGroup :global(.ant-checkbox-wrapper) { font-size: 12px; padding: 3px 0; min-height: auto; }
+:global(html.pad-mode) .askCheckboxGroup { gap: 2px; }
+:global(html.pad-mode) .askOtherInput :global(.ant-input) { font-size: 12px; }
+:global(html.pad-mode) .askSubmitBtn { padding: 4px 20px; font-size: 13px; }

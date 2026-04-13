@@ -5,7 +5,7 @@ import MarkdownBlock from './MarkdownBlock';
 import { getTeammateAvatar } from '../utils/teammateAvatars';
 import { renderAssistantText } from '../utils/systemTags';
 import { apiUrl } from '../utils/apiUrl';
-import { isMobile, isIOS } from '../env';
+import { isMobile, isIOS, isPad } from '../env';
 import AskQuestionForm from './AskQuestionForm';
 import { t } from '../i18n';
 import { isPlanApprovalPrompt } from '../utils/promptClassifier';
@@ -842,7 +842,7 @@ class ChatMessage extends React.Component {
             overlayInnerStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-hover)', borderRadius: 8, padding: 0 }}
             content={<div className={styles.simplifiedToolPopoverContent}>{this.renderToolCall(tu)}</div>}
             mouseEnterDelay={0.3}
-            {...(isMobile ? { trigger: 'click', ...(!isIOS && { getPopupContainer: (node) => node.parentElement }) } : {})}
+            {...((isMobile && !isPad) ? { trigger: 'click', ...(!isIOS && { getPopupContainer: (node) => node.parentElement }) } : {})}
           >
             <span className={styles.simplifiedToolTag}>{tu.name}</span>
           </Popover>

@@ -23,7 +23,7 @@ import RoleFilterBar from './RoleFilterBar';
 import ChatInputBar from './ChatInputBar';
 import PresetModal from './PresetModal';
 import { Virtuoso } from 'react-virtuoso';
-import { isMobile, isIOS } from '../env';
+import { isMobile, isIOS, isPad } from '../env';
 import { t } from '../i18n';
 import { apiUrl } from '../utils/apiUrl';
 import { tryOpenWithSystem } from '../utils/fileOpen';
@@ -98,7 +98,7 @@ class ChatView extends React.Component {
       ptyPrompt: null,
       ptyPromptHistory: [],
       inputSuggestion: null,
-      fileExplorerOpen: !isMobile && localStorage.getItem('ccv_fileExplorerOpen') !== 'false',
+      fileExplorerOpen: (!isMobile || isPad) && localStorage.getItem('ccv_fileExplorerOpen') !== 'false',
       currentFile: null,
       currentGitDiff: null,
       scrollToLine: null,
@@ -1359,7 +1359,7 @@ class ChatView extends React.Component {
     if (!textarea) return;
     textarea.value = description;
     textarea.style.height = 'auto';
-    textarea.style.height = Math.min(textarea.scrollHeight, isMobile ? 160 : 120) + 'px';
+    textarea.style.height = Math.min(textarea.scrollHeight, (isMobile && !isPad) ? 160 : 120) + 'px';
     this.setState({ inputEmpty: false });
     textarea.focus();
   };

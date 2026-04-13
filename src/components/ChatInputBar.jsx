@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { uploadFileAndGetPath } from './TerminalPanel';
 import { apiUrl } from '../utils/apiUrl';
-import { isMobile } from '../env';
+import { isMobile, isPad } from '../env';
 import { t } from '../i18n';
 import styles from './ChatInputBar.module.css';
 
@@ -183,8 +183,8 @@ function ChatInputBar({ inputRef, inputEmpty, inputSuggestion, terminalVisible, 
               </>
             )}
           </div>
-          <div className={isMobile ? styles.chatInputHintMobile : styles.chatInputHint}>
-            {isMobile
+          <div className={(isMobile && !isPad) ? styles.chatInputHintMobile : styles.chatInputHint}>
+            {(isMobile && !isPad)
               ? t('ui.chatInput.hintMobile')
               : <>
                   {inputSuggestion && inputEmpty ? t('ui.chatInput.hintTab') : t('ui.chatInput.hintEnter')}

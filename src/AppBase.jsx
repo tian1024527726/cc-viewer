@@ -1,7 +1,7 @@
 import React from 'react';
 import { ConfigProvider, theme, Modal, Table, Tag, Spin, Button, Checkbox, Popover, message } from 'antd';
 import { DownloadOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
-import { isMobile } from './env';
+import { isMobile, isPad } from './env';
 import WorkspaceList from './components/WorkspaceList';
 import OpenFolderIcon from './components/OpenFolderIcon';
 import { t, getLang, setLang } from './i18n';
@@ -18,7 +18,7 @@ import styles from './App.module.css';
 
 export { styles };
 
-export const MAX_SESSIONS = isMobile ? 30 : 100;
+export const MAX_SESSIONS = (isMobile && !isPad) ? 30 : 100;
 
 /**
  * 共享基类：包含 PC 和 Mobile 通用的状态管理、SSE 通信、数据处理、偏好设置等逻辑。
