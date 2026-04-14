@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { t } from './i18n.js';
-import { INJECT_IMPORT, resolveCliPath, resolveNativePath, resolveNpmClaudePath, buildShellCandidates, setLogDir } from './findcc.js';
+import { INJECT_IMPORT, resolveCliPath, resolveNativePath, resolveNpmClaudePath, buildShellCandidates, setLogDir, LOG_DIR } from './findcc.js';
 import { ensureHooks } from './lib/ensure-hooks.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -361,7 +361,7 @@ async function runSdkMode(extraClaudeArgs = [], cwd, noOpen = false) {
     if (!sdkManager.isSdkAvailable()) throw new Error('query not available');
   } catch {
     console.warn('[CC Viewer] Agent SDK not available, falling back to PTY mode (-C)');
-    return runCliMode(extraClaudeArgs, cwd);
+    return runCliMode(extraClaudeArgs, cwd, noOpen);
   }
 
   const workingDir = cwd || process.cwd();
@@ -519,7 +519,12 @@ const logDirIdx = args.indexOf('--log-dir');
 if (logDirIdx !== -1) {
   const logDirVal = args[logDirIdx + 1];
   if (logDirVal && !logDirVal.startsWith('-')) {
+    const prevDir = LOG_DIR;
     setLogDir(logDirVal);
+    if (LOG_DIR === prevDir) {
+      console.error(`Error: --log-dir path rejected (must be under home directory or /tmp/): ${logDirVal}`);
+      process.exit(1);
+    }
     args.splice(logDirIdx, 2);
   } else {
     console.error('Error: --log-dir requires a path argument');
