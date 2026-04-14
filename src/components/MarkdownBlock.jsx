@@ -1,18 +1,21 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Tooltip, message } from 'antd';
-import { CopyOutlined, DownloadOutlined, CameraOutlined } from '@ant-design/icons';
+import { CopyOutlined, DownloadOutlined, CameraOutlined, SaveOutlined } from '@ant-design/icons';
 import { renderMarkdown } from '../utils/markdown';
+import { apiUrl } from '../utils/apiUrl';
 import { isMobile, isPad } from '../env';
 import { t } from '../i18n';
 import styles from './MarkdownBlock.module.css';
 
 function MarkdownBlock({ text, className, style }) {
   const [hovered, setHovered] = useState(false);
+  const [saveMenuOpen, setSaveMenuOpen] = useState(false);
   const timerRef = useRef(null);
   const wrapRef = useRef(null);
   const savingRef = useRef(false);
 
   useEffect(() => () => clearTimeout(timerRef.current), []);
+
 
   const html = useMemo(() => text ? renderMarkdown(text) : '', [text]);
 
@@ -27,6 +30,7 @@ function MarkdownBlock({ text, className, style }) {
 
   const handleSaveAs = useCallback(async (e) => {
     e.stopPropagation();
+    setSaveMenuOpen(false);
     const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
     const defaultName = `content-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.md`;
     if (window.showSaveFilePicker) {
@@ -55,11 +59,11 @@ function MarkdownBlock({ text, className, style }) {
 
   const handleSaveAsImage = useCallback((e) => {
     e.stopPropagation();
+    setSaveMenuOpen(false);
     if (savingRef.current) return;
     const el = wrapRef.current;
     if (!el) return;
     savingRef.current = true;
-    // 向上查找 bubble 容器，包含 padding/border-radius 出血区域
     const target = el.closest('[class*="bubble"]') || el;
     const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
     import('html2canvas').then(({ default: html2canvas }) => {
@@ -86,13 +90,36 @@ function MarkdownBlock({ text, className, style }) {
     }).catch((err) => { console.warn('html2canvas load failed:', err); savingRef.current = false; });
   }, []);
 
+  const handleSaveToProject = useCallback(async (e) => {
+    e.stopPropagation();
+    setSaveMenuOpen(false);
+    const defaultName = `content-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.md`;
+    const fileName = window.prompt(t('ui.saveToProject.prompt'), defaultName);
+    if (!fileName) return;
+    try {
+      const res = await fetch(apiUrl('/api/file-content'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: fileName, content: text }),
+      });
+      if (res.ok) {
+        message.success(t('ui.saveToProject.success', { name: fileName }));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        message.error(data.error || 'Save failed');
+      }
+    } catch (err) {
+      message.error(err.message || 'Save failed');
+    }
+  }, [text]);
+
   const handleMouseEnter = useCallback(() => {
     clearTimeout(timerRef.current);
     setHovered(true);
   }, []);
 
   const handleMouseLeave = useCallback(() => {
-    timerRef.current = setTimeout(() => setHovered(false), 150);
+    timerRef.current = setTimeout(() => { setHovered(false); setSaveMenuOpen(false); }, 150);
   }, []);
 
   return (
@@ -114,16 +141,32 @@ function MarkdownBlock({ text, className, style }) {
               <CopyOutlined />
             </span>
           </Tooltip>
-          <Tooltip title={t('ui.saveAs')} mouseEnterDelay={0.3}>
-            <span className={styles.actionBtn} onClick={handleSaveAs}>
-              <DownloadOutlined />
-            </span>
-          </Tooltip>
-          <Tooltip title={t('ui.saveAsImage')} mouseEnterDelay={0.3}>
-            <span className={styles.actionBtn} onClick={handleSaveAsImage}>
-              <CameraOutlined />
-            </span>
-          </Tooltip>
+          <div className={styles.saveAsWrap}
+            onMouseEnter={() => setSaveMenuOpen(true)}
+            onMouseLeave={() => setSaveMenuOpen(false)}
+          >
+            <Tooltip title={saveMenuOpen ? '' : t('ui.saveAs')} mouseEnterDelay={0.3}>
+              <span className={styles.actionBtn}>
+                <DownloadOutlined />
+              </span>
+            </Tooltip>
+            {saveMenuOpen && (
+              <div className={styles.saveMenu}>
+                <button className={styles.saveMenuItem} onClick={handleSaveAs}>
+                  <DownloadOutlined />
+                  <span>{t('ui.saveAsMd')}</span>
+                </button>
+                <button className={styles.saveMenuItem} onClick={handleSaveAsImage}>
+                  <CameraOutlined />
+                  <span>{t('ui.saveAsImage')}</span>
+                </button>
+                <button className={styles.saveMenuItem} onClick={handleSaveToProject}>
+                  <SaveOutlined />
+                  <span>{t('ui.saveToProject')}</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

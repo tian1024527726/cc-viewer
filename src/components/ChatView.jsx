@@ -1,7 +1,7 @@
 import React from 'react';
-import { Empty, Typography, Divider, Spin, Popover } from 'antd';
+import { Empty, Typography, Divider, Spin, Popover, message } from 'antd';
 import ChatMessage from './ChatMessage';
-import TerminalPanel from './TerminalPanel';
+import TerminalPanel, { uploadFileAndGetPath } from './TerminalPanel';
 import FileExplorer from './FileExplorer';
 import FileContentView from './FileContentView';
 import ImageViewer from './ImageViewer';
@@ -22,6 +22,9 @@ import SnapLineOverlay from './SnapLineOverlay';
 import RoleFilterBar from './RoleFilterBar';
 import ChatInputBar from './ChatInputBar';
 import PresetModal from './PresetModal';
+import UltraPlanModal from './UltraPlanModal';
+import { buildLocalUltraplan } from '../utils/ultraplanTemplates';
+import { getModelMaxTokens } from '../utils/helpers';
 import { Virtuoso } from 'react-virtuoso';
 import { isMobile, isIOS, isPad } from '../env';
 import { t } from '../i18n';
@@ -126,6 +129,11 @@ class ChatView extends React.Component {
       pendingPermission: null, // { id, toolName, input } — active permission approval request
       pendingPlanApproval: null, // { id, input } — active ExitPlanMode approval in SDK mode
       pendingImages: [], // [{ path, source }] — images uploaded/pasted, shown as previews in chat input
+      agentTeamEnabled: false,
+      ultraplanModalOpen: false,
+      ultraplanVariant: 'codeExpert',
+      ultraplanPrompt: '',
+      ultraplanFiles: [],
     };
     this._processedToolIds = new Set();
     this._projectDirCache = null; // 缓存项目目录绝对路径
@@ -260,6 +268,12 @@ class ChatView extends React.Component {
         if (!r.ok) this.setState({ hasGit: false, gitChangesOpen: false });
       }).catch(() => this.setState({ hasGit: false, gitChangesOpen: false }));
     });
+    // 检测 Agent Team 是否启用（UltraPlan 依赖）
+    fetch(apiUrl('/api/claude-settings')).then(r => r.ok ? r.json() : null).then(data => {
+      if (data?.env?.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === '1') {
+        this.setState({ agentTeamEnabled: true });
+      }
+    }).catch(() => {});
     if (!useVirtuoso) this._bindStickyScroll();
     // 初始化时吸附到 60cols
     if (this.state.needsInitialSnap && this.props.cliMode && this.props.terminalVisible) {
@@ -1368,6 +1382,67 @@ class ChatView extends React.Component {
     textarea.style.height = Math.min(textarea.scrollHeight, (isMobile && !isPad) ? 160 : 120) + 'px';
     this.setState({ inputEmpty: false });
     textarea.focus();
+  };
+
+  // ─── UltraPlan handlers ─────────────────────────────────
+  _handleUltraplanSend = () => {
+    const trimmed = this.state.ultraplanPrompt.trim();
+    if (!trimmed && this.state.ultraplanFiles.length === 0) return;
+    const filePaths = this.state.ultraplanFiles.map(f => `"${f.path}"`).join(' ');
+    const userInput = filePaths ? (trimmed ? `${filePaths} ${trimmed}` : filePaths) : trimmed;
+    const assembled = buildLocalUltraplan(userInput, this.state.ultraplanVariant);
+    this.setState({ ultraplanModalOpen: false, ultraplanPrompt: '', ultraplanVariant: 'codeExpert', ultraplanFiles: [] });
+    if (assembled && this._inputWs && this._inputWs.readyState === WebSocket.OPEN) {
+      this._inputWs.send(JSON.stringify({ type: 'input', data: `\x1b[200~${assembled}\x1b[201~\r` }));
+    }
+  };
+
+  _handleUltraplanUpload = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const path = await uploadFileAndGetPath(file);
+        this.setState(prev => ({
+          ultraplanFiles: [...prev.ultraplanFiles, { name: file.name, path }],
+        }));
+      } catch (err) {
+        console.error('Ultraplan upload failed:', err);
+        message.error(err?.message || 'Upload failed');
+      }
+    };
+    input.click();
+  };
+
+  _handleUltraplanPaste = async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) return;
+        try {
+          const path = await uploadFileAndGetPath(file);
+          const name = file.name || `paste-${Date.now()}.png`;
+          this.setState(prev => ({
+            ultraplanFiles: [...prev.ultraplanFiles, { name, path }],
+          }));
+        } catch (err) {
+          console.error('Ultraplan paste upload failed:', err);
+          message.error(err?.message || 'Upload failed');
+        }
+        return;
+      }
+    }
+  };
+
+  _handleUltraplanRemoveFile = (idx) => {
+    this.setState(prev => ({
+      ultraplanFiles: prev.ultraplanFiles.filter((_, i) => i !== idx),
+    }));
   };
 
   connectInputWs() {
@@ -3046,10 +3121,26 @@ class ChatView extends React.Component {
               presetItems={this.state.presetItems}
               onPresetSend={this.handlePresetSend}
               onOpenPresetModal={() => this.setState({ mobilePresetModalVisible: true })}
+              onOpenUltraPlan={this.state.agentTeamEnabled && this.props.cliMode ? () => this.setState({ ultraplanModalOpen: true }) : null}
               isStreaming={this.props.isStreaming}
               streamingFading={this.state.streamingFading}
               pendingImages={this.state.pendingImages}
               onRemovePendingImage={this._removePendingImage}
+            />
+            <UltraPlanModal
+              open={this.state.ultraplanModalOpen}
+              variant={this.state.ultraplanVariant}
+              prompt={this.state.ultraplanPrompt}
+              files={this.state.ultraplanFiles}
+              modelName={this._reqScanCache?.modelName}
+              agentTeamEnabled={this.state.agentTeamEnabled}
+              onClose={() => this.setState({ ultraplanModalOpen: false })}
+              onVariantChange={(v) => this.setState({ ultraplanVariant: v })}
+              onPromptChange={(t) => this.setState({ ultraplanPrompt: t })}
+              onSend={this._handleUltraplanSend}
+              onUpload={this._handleUltraplanUpload}
+              onPaste={this._handleUltraplanPaste}
+              onRemoveFile={this._handleUltraplanRemoveFile}
             />
             </div>
           </div>

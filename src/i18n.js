@@ -1477,6 +1477,41 @@ const i18nData = {
     "tr": "Farklı Kaydet",
     "uk": "Зберегти як"
   },
+  "ui.saveAsMd": {
+    "zh": "Markdown 文件", "en": "Markdown File", "zh-TW": "Markdown 檔案",
+    "ko": "Markdown 파일", "ja": "Markdown ファイル", "de": "Markdown-Datei",
+    "es": "Archivo Markdown", "fr": "Fichier Markdown", "it": "File Markdown",
+    "da": "Markdown-fil", "pl": "Plik Markdown", "ru": "Файл Markdown",
+    "ar": "ملف Markdown", "no": "Markdown-fil", "pt-BR": "Arquivo Markdown",
+    "th": "ไฟล์ Markdown", "tr": "Markdown Dosyası", "uk": "Файл Markdown"
+  },
+  "ui.saveToProject": {
+    "zh": "保存到项目", "en": "Save to Project", "zh-TW": "儲存到專案",
+    "ko": "프로젝트에 저장", "ja": "プロジェクトに保存", "de": "Im Projekt speichern",
+    "es": "Guardar en proyecto", "fr": "Enregistrer dans le projet", "it": "Salva nel progetto",
+    "da": "Gem i projekt", "pl": "Zapisz w projekcie", "ru": "Сохранить в проект",
+    "ar": "حفظ في المشروع", "no": "Lagre i prosjekt", "pt-BR": "Salvar no projeto",
+    "th": "บันทึกลงโปรเจกต์", "tr": "Projeye Kaydet", "uk": "Зберегти в проект"
+  },
+  "ui.saveToProject.prompt": {
+    "zh": "输入文件名（保存到项目根目录）：", "en": "Enter filename (save to project root):",
+    "zh-TW": "輸入檔名（儲存到專案根目錄）：", "ko": "파일 이름 입력 (프로젝트 루트에 저장):",
+    "ja": "ファイル名を入力（プロジェクトルートに保存）：", "de": "Dateiname eingeben (im Projektstamm speichern):",
+    "es": "Ingrese nombre de archivo (guardar en raíz del proyecto):", "fr": "Entrez le nom du fichier (enregistrer à la racine du projet) :",
+    "it": "Inserisci nome file (salva nella root del progetto):", "da": "Indtast filnavn (gem i projektrod):",
+    "pl": "Wpisz nazwę pliku (zapisz w katalogu głównym projektu):", "ru": "Введите имя файла (сохранить в корне проекта):",
+    "ar": "أدخل اسم الملف (حفظ في جذر المشروع):", "no": "Skriv inn filnavn (lagre i prosjektrot):",
+    "pt-BR": "Digite o nome do arquivo (salvar na raiz do projeto):", "th": "กรอกชื่อไฟล์ (บันทึกที่รากโปรเจกต์):",
+    "tr": "Dosya adı girin (proje kök dizinine kaydet):", "uk": "Введіть ім'я файлу (зберегти в корені проекту):"
+  },
+  "ui.saveToProject.success": {
+    "zh": "已保存: {{name}}", "en": "Saved: {{name}}", "zh-TW": "已儲存: {{name}}",
+    "ko": "저장됨: {{name}}", "ja": "保存しました: {{name}}", "de": "Gespeichert: {{name}}",
+    "es": "Guardado: {{name}}", "fr": "Enregistré : {{name}}", "it": "Salvato: {{name}}",
+    "da": "Gemt: {{name}}", "pl": "Zapisano: {{name}}", "ru": "Сохранено: {{name}}",
+    "ar": "تم الحفظ: {{name}}", "no": "Lagret: {{name}}", "pt-BR": "Salvo: {{name}}",
+    "th": "บันทึกแล้ว: {{name}}", "tr": "Kaydedildi: {{name}}", "uk": "Збережено: {{name}}"
+  },
   "ui.saveAsImage": {
     "zh": "保存为图片", "en": "Save as Image", "zh-TW": "儲存為圖片",
     "ko": "이미지로 저장", "ja": "画像として保存", "de": "Als Bild speichern",

@@ -7,6 +7,7 @@
   top: 2px;
   right: 2px;
   display: flex;
+  align-items: center;
   gap: 2px;
   z-index: 10;
   opacity: 0;
@@ -37,4 +38,45 @@
   color: var(--text-primary);
   background: var(--bg-surface);
   border-color: var(--border-hover);
+}
+
+/* ─── 另存为 下拉按钮 ─── */
+.saveAsWrap {
+  position: relative;
+}
+
+.saveMenu {
+  position: absolute;
+  top: 24px;
+  right: 0;
+  padding-top: 4px;
+  min-width: 130px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-hover);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px var(--overlay-dark-light);
+  padding: 4px;
+  z-index: 20;
+  animation: fadeIn 0.1s ease;
+}
+
+.saveMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.saveMenuItem:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
 }

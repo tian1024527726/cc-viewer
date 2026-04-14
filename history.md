@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.156 (2026-04-15)
+
+- Feat: UltraPlan mobile entry — "+" menu item opens modal with role selector, file upload, image paste
+- Feat: markdown action bar — hover dropdown "Save As" with Markdown file / Save as Image / Save to Project
+- Feat: "Save to Project" writes markdown content to project directory via `/api/file-content`
+- Style: UltraPlan modal with mobile zoom compensation, backdrop blocks background interaction
+- Fix: UltraPlan upload/paste failure shows user-visible error toast
+
 ## 1.6.155 (2026-04-14)
 
 - Feat: multi-repo git support — scan project root + first-level subdirs for git repos

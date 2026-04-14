@@ -5,7 +5,7 @@ import { isMobile, isPad } from '../env';
 import { t } from '../i18n';
 import styles from './ChatInputBar.module.css';
 
-function ChatInputBar({ inputRef, inputEmpty, inputSuggestion, terminalVisible, onKeyDown, onChange, onSend, onSuggestionClick, onUploadPath, presetItems, onPresetSend, onOpenPresetModal, isStreaming, streamingFading, pendingImages, onRemovePendingImage }) {
+function ChatInputBar({ inputRef, inputEmpty, inputSuggestion, terminalVisible, onKeyDown, onChange, onSend, onSuggestionClick, onUploadPath, presetItems, onPresetSend, onOpenPresetModal, onOpenUltraPlan, isStreaming, streamingFading, pendingImages, onRemovePendingImage }) {
   const [plusOpen, setPlusOpen] = useState(false);
 
   const handlePaste = async (e) => {
@@ -156,6 +156,16 @@ function ChatInputBar({ inputRef, inputEmpty, inputSuggestion, terminalVisible, 
                     </button>
                   );
                 })}
+                {onOpenUltraPlan && (
+                  <button className={styles.plusMenuItem} onClick={() => { setPlusOpen(false); onOpenUltraPlan(); }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="2.5"/><ellipse cx="12" cy="12" rx="10" ry="4"/>
+                      <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/>
+                      <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/>
+                    </svg>
+                    <span>UltraPlan</span>
+                  </button>
+                )}
                 <button className={styles.plusMenuItem} onClick={() => {
                   setPlusOpen(false);
                   const input = document.createElement('input');
