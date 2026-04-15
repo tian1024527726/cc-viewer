@@ -124,6 +124,59 @@ describe('server API endpoints', { concurrency: false }, () => {
     assert.ok(data.name, 'should have a name');
   });
 
+  it('GET /api/user-profile respects CCV_USER_NAME override', async () => {
+    const { clearProfileCache } = await import('../lib/user-profile.js');
+    const origName = process.env.CCV_USER_NAME;
+    try {
+      process.env.CCV_USER_NAME = 'TestCustomUser';
+      clearProfileCache();
+      const res = await httpRequest(port, '/api/user-profile');
+      assert.equal(res.status, 200);
+      const data = res.json();
+      assert.equal(data.name, 'TestCustomUser');
+    } finally {
+      if (origName === undefined) delete process.env.CCV_USER_NAME;
+      else process.env.CCV_USER_NAME = origName;
+      clearProfileCache();
+    }
+  });
+
+  it('GET /api/user-profile respects CCV_USER_AVATAR URL override', async () => {
+    const { clearProfileCache } = await import('../lib/user-profile.js');
+    const origAvatar = process.env.CCV_USER_AVATAR;
+    try {
+      process.env.CCV_USER_AVATAR = 'https://example.com/avatar.png';
+      clearProfileCache();
+      const res = await httpRequest(port, '/api/user-profile');
+      assert.equal(res.status, 200);
+      const data = res.json();
+      assert.equal(data.avatar, 'https://example.com/avatar.png');
+    } finally {
+      if (origAvatar === undefined) delete process.env.CCV_USER_AVATAR;
+      else process.env.CCV_USER_AVATAR = origAvatar;
+      clearProfileCache();
+    }
+  });
+
+  it('GET /api/user-profile falls back to OS detection when no override', async () => {
+    const { clearProfileCache } = await import('../lib/user-profile.js');
+    const origName = process.env.CCV_USER_NAME;
+    const origAvatar = process.env.CCV_USER_AVATAR;
+    try {
+      delete process.env.CCV_USER_NAME;
+      delete process.env.CCV_USER_AVATAR;
+      clearProfileCache();
+      const res = await httpRequest(port, '/api/user-profile');
+      assert.equal(res.status, 200);
+      const data = res.json();
+      assert.ok(data.name, 'should have a name from OS');
+    } finally {
+      if (origName !== undefined) process.env.CCV_USER_NAME = origName;
+      if (origAvatar !== undefined) process.env.CCV_USER_AVATAR = origAvatar;
+      clearProfileCache();
+    }
+  });
+
   // --- GET /api/concept with invalid params ---
   it('GET /api/concept rejects invalid doc param', async () => {
     const res = await httpRequest(port, '/api/concept?lang=zh&doc=../../etc/passwd');

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.159 (2026-04-15)
+
+- Feat: custom user name and avatar via CLI — `--user-name <name>` and `--user-avatar <path|url>` override macOS system identity in chat UI
+- Feat: avatar supports online URLs (http/https) and local image files (png/jpg/jpeg/gif/webp, ≤2MB)
+- Feat: i18n — `cli.userNameRequired`, `cli.userAvatarRequired` with 18 languages; help text updated
+
 ## 1.6.158 (2026-04-15)
 
 - Feat: responsive mode switching — PC width <600px prompts sidebar mode, iPad width >1400px prompts full view mode (matchMedia, zero perf cost)

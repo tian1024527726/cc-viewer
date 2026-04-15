@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { readFileSync, writeFileSync, existsSync, realpathSync, unlinkSync, mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { resolve, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { spawn } from 'node:child_process';
@@ -537,6 +537,38 @@ const noOpenIdx = args.indexOf('--no-open');
 if (noOpenIdx !== -1) {
   noOpen = true;
   args.splice(noOpenIdx, 1);
+}
+
+// Extract --user-name <name>
+const userNameIdx = args.indexOf('--user-name');
+if (userNameIdx !== -1) {
+  const userNameVal = args[userNameIdx + 1];
+  if (userNameVal && !userNameVal.startsWith('-')) {
+    process.env.CCV_USER_NAME = userNameVal;
+    args.splice(userNameIdx, 2);
+  } else {
+    console.error(t('cli.userNameRequired'));
+    process.exit(1);
+  }
+}
+
+// Extract --user-avatar <path|url>
+const userAvatarIdx = args.indexOf('--user-avatar');
+if (userAvatarIdx !== -1) {
+  const userAvatarVal = args[userAvatarIdx + 1];
+  if (userAvatarVal && !userAvatarVal.startsWith('-')) {
+    // URLs and data URIs stored as-is; relative paths resolved to absolute immediately
+    if (!userAvatarVal.startsWith('http://') && !userAvatarVal.startsWith('https://') &&
+        !userAvatarVal.startsWith('data:') && !isAbsolute(userAvatarVal)) {
+      process.env.CCV_USER_AVATAR = resolve(process.cwd(), userAvatarVal);
+    } else {
+      process.env.CCV_USER_AVATAR = userAvatarVal;
+    }
+    args.splice(userAvatarIdx, 2);
+  } else {
+    console.error(t('cli.userAvatarRequired'));
+    process.exit(1);
+  }
 }
 
 // ccv 自有命令判断
