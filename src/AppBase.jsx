@@ -395,6 +395,19 @@ class AppBase extends React.Component {
     }, 45000);
   };
 
+  // 不关闭 EventSource —— 连接是会话级单例，workspace 切换复用同一条连接。
+  _teardownTransientLiveState = () => {
+    this._pendingEntries = [];
+    if (this._flushRafId) { cancelAnimationFrame(this._flushRafId); this._flushRafId = null; }
+    if (this._streamingOffTimer) { clearTimeout(this._streamingOffTimer); this._streamingOffTimer = null; }
+    if (this._loadingCountRafId) { cancelAnimationFrame(this._loadingCountRafId); this._loadingCountRafId = null; }
+    this._chunkedEntries = [];
+    this._chunkedTotal = 0;
+    this._isIncremental = false;
+    this._sseSlimmer = null;
+    this._sseReconstructor = null;
+  };
+
   _reconnectSSE() {
     // SSE 连接真死（心跳超时 / 重试上限），清除流式 overlay 避免卡死
     if (this.state.streamingLatest) this.setState({ streamingLatest: null });
@@ -404,10 +417,8 @@ class AppBase extends React.Component {
     }
     this._sseReconnectCount = (this._sseReconnectCount || 0) + 1;
     if (this.eventSource) { this.eventSource.close(); this.eventSource = null; }
-    if (this._streamingOffTimer) { clearTimeout(this._streamingOffTimer); this._streamingOffTimer = null; }
-    if (this._flushRafId) { cancelAnimationFrame(this._flushRafId); this._flushRafId = null; }
 
-    // 增量恢复：如果加载中断，保存已收到的 chunked entries 以便重连后增量续传
+    // 必须在 _teardownTransientLiveState() 之前，否则 _chunkedEntries 会被清零。
     if (this._chunkedEntries && this._chunkedEntries.length > 0 && isMobile) {
       try {
         const partial = reconstructEntries([...this._chunkedEntries]);
@@ -428,14 +439,9 @@ class AppBase extends React.Component {
         console.warn('Failed to save partial entries on reconnect:', e);
       }
     }
-    this._chunkedEntries = [];
-    this._chunkedTotal = 0;
-    this._isIncremental = false;
-    if (this._loadingCountRafId) { cancelAnimationFrame(this._loadingCountRafId); this._loadingCountRafId = null; }
 
-    this._pendingEntries = [];
+    this._teardownTransientLiveState();
     this.setState({ isStreaming: false });
-    this._sseSlimmer = null; this._sseReconstructor = null;
     if (this._sseReconnectTimer) clearTimeout(this._sseReconnectTimer);
     this._sseReconnectTimer = setTimeout(() => { this.initSSE(); }, 2000);
   }
@@ -789,6 +795,7 @@ class AppBase extends React.Component {
       });
       this.eventSource.addEventListener('workspace_stopped', () => {
         this._resetSSETimeout();
+        this._teardownTransientLiveState();
         this._rebuildRequestIndex([]);
         this.setState({
           workspaceMode: true,
@@ -1212,6 +1219,7 @@ class AppBase extends React.Component {
   handleReturnToWorkspaces = () => {
     fetch(apiUrl('/api/workspaces/stop'), { method: 'POST' })
       .then(() => {
+        this._teardownTransientLiveState();
         this._rebuildRequestIndex([]);
         this.setState({
           workspaceMode: true,

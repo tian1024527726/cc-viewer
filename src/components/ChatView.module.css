@@ -351,3 +351,10 @@
 .lastResponseDivider::after {
   border-block-start-style: dashed !important;
 }
+
+/* 方案 D：流式 overlay 活跃时隐藏 Last Response 顶部 "---Last Response---" Divider 标识
+   （overlay 本身已表达"更新一轮在下面"，Divider 语义冗余）。Last Response 内容本身不隐藏，
+   让用户仍能看到上一轮做参考/对比/复制。 */
+.hideLastResponseDivider .lastResponseDivider {
+  display: none;
+}

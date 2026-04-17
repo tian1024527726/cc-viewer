@@ -46,7 +46,7 @@ class AppHeader extends React.Component {
   constructor(props) {
     super(props);
     this.state = { countdownText: '', countryFlag: null, countryInfo: null, promptModalVisible: false, promptData: [], promptViewMode: 'original', settingsDrawerVisible: false, globalSettingsVisible: false, projectStatsVisible: false, projectStats: null, projectStatsLoading: false, localUrl: '', pluginModalVisible: false, pluginsList: [], pluginsDir: '', deleteConfirmVisible: false, deleteTarget: null, processModalVisible: false, processList: [], processLoading: false, logoDropdownOpen: false, cacheHighlightIdx: null, cacheHighlightFading: false, cdnModalVisible: false, cdnUrl: '', cdnLoading: false, calibrationModel: (v => CALIBRATION_MODELS.some(m => m.value === v) ? v : 'auto')(localStorage.getItem('ccv_calibrationModel') || 'auto'), proxyModalVisible: false, editingProxy: null, editForm: { name: '', baseURL: '', apiKey: '', models: '', activeModel: '' }, logDirDraft: null };
-    this._rafId = null;
+    this._countdownTimer = null;
     this._expiredTimer = null;
     this.updateCountdown = this.updateCountdown.bind(this);
   }
@@ -97,7 +97,7 @@ class AppHeader extends React.Component {
   }
 
   componentWillUnmount() {
-    if (this._rafId) cancelAnimationFrame(this._rafId);
+    if (this._countdownTimer) clearTimeout(this._countdownTimer);
     if (this._expiredTimer) clearTimeout(this._expiredTimer);
     if (this._cacheFadeClearTimer) clearTimeout(this._cacheFadeClearTimer);
     if (this._cacheScrollSettleTimer) clearTimeout(this._cacheScrollSettleTimer);
@@ -107,15 +107,19 @@ class AppHeader extends React.Component {
   }
 
   startCountdown() {
-    if (this._rafId) cancelAnimationFrame(this._rafId);
+    if (this._countdownTimer) clearTimeout(this._countdownTimer);
     if (this._expiredTimer) clearTimeout(this._expiredTimer);
     if (!this.props.cacheExpireAt) {
       if (this.state.countdownText !== '') this.setState({ countdownText: '' });
       return;
     }
-    this._rafId = requestAnimationFrame(this.updateCountdown);
+    this.updateCountdown();
   }
 
+  // 秒级倒计时：改用 setTimeout 对齐下一秒边界，替代原 rAF 60fps 递归。
+  // 旧实现每 16ms 跑一次 Date.now() + math + compare 虽然大多数帧不 setState，
+  // 但仍占大量调度开销（profile 中 ~1934 samples）。新实现每秒至多一次 tick，
+  // 保留 "text 未变不 setState" 守卫避免多余 render。
   updateCountdown() {
     const { cacheExpireAt } = this.props;
     if (!cacheExpireAt) {
@@ -123,7 +127,8 @@ class AppHeader extends React.Component {
       return;
     }
 
-    const remaining = Math.max(0, cacheExpireAt - Date.now());
+    const now = Date.now();
+    const remaining = Math.max(0, cacheExpireAt - now);
     if (remaining <= 0) {
       const expired = t('ui.cacheExpired');
       if (this.state.countdownText !== expired) this.setState({ countdownText: expired });
@@ -143,7 +148,8 @@ class AppHeader extends React.Component {
       text = t('ui.second', { s: totalSec });
     }
     if (text !== this.state.countdownText) this.setState({ countdownText: text });
-    this._rafId = requestAnimationFrame(this.updateCountdown);
+    const delay = 1000 - (now % 1000);
+    this._countdownTimer = setTimeout(this.updateCountdown, delay);
   }
 
   // 命令相关的标签集合，已作为独立 prompt 输出，在 segments 中直接丢弃
@@ -282,6 +288,18 @@ class AppHeader extends React.Component {
 
   renderTokenStats() {
     const { requests = [] } = this.props;
+    const { cacheHighlightIdx, cacheHighlightFading } = this.state;
+    // Popover 打开期间 AppHeader 可能因 contextWindow / serverCachedContent 等其他
+    // prop 变化而重渲，此时 requests 未变但会重跑 3 份 O(N) 聚合 + 大 JSX 构造。
+    // 按 requests 引用 + 2 个高亮 state 做 === memo，典型场景命中率 >80%。
+    if (
+      this._tokenStatsCache &&
+      this._tokenStatsCacheReq === requests &&
+      this._tokenStatsCacheHl === cacheHighlightIdx &&
+      this._tokenStatsCacheFade === cacheHighlightFading
+    ) {
+      return this._tokenStatsCache;
+    }
     const byModel = computeTokenStats(requests);
     const models = Object.keys(byModel);
     const toolStats = computeToolUsageStats(requests);
@@ -402,7 +420,7 @@ class AppHeader extends React.Component {
       </div>
     ) : null;
 
-    return (
+    const result = (
       <div className={styles.tokenStatsContainer}>
         {tokenColumn}
         {cacheRebuildColumn}
@@ -410,6 +428,11 @@ class AppHeader extends React.Component {
         {skillColumn}
       </div>
     );
+    this._tokenStatsCache = result;
+    this._tokenStatsCacheReq = requests;
+    this._tokenStatsCacheHl = cacheHighlightIdx;
+    this._tokenStatsCacheFade = cacheHighlightFading;
+    return result;
   }
 
   _cacheUnbindScrollFade() {
@@ -1246,7 +1269,7 @@ class AppHeader extends React.Component {
             </span>
           </Dropdown>
           <Popover
-            content={this.renderTokenStats()}
+            content={() => this.renderTokenStats()}
             trigger="hover"
             placement="bottomLeft"
             overlayInnerStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-hover)', borderRadius: 8, padding: '8px 8px', maxHeight: '80vh', overflowY: 'auto' }}

@@ -43,6 +43,38 @@ function ChatImage({ src, alt, fallbackText }) {
   );
 }
 
+// 流式期间 ChatMessage 整树每 chunk 重渲一次；Avatar / Label 的实际 props
+// （modelInfo / name / timestamp / requestIndex）在一轮响应内都是稳定的。
+// 提取为 memo 组件后 React 在浅比较通过时直接 bail out，不再进入内部
+// antd Text / 头像 innerHTML 的 reconciliation，显著降低 reconciler 工作量。
+const ModelAvatar = React.memo(function ModelAvatar({ modelInfo }) {
+  if (modelInfo?.svg) {
+    return (
+      <div className={styles.avatar} style={{ background: modelInfo.color || 'var(--bg-model-avatar)' }}
+        dangerouslySetInnerHTML={{ __html: modelInfo.svg }}
+      />
+    );
+  }
+  return <img src={defaultModelAvatarUrl} className={styles.avatarImg} alt={modelInfo?.name || 'Agent'} />;
+});
+
+const AssistantLabel = React.memo(function AssistantLabel({ name, extra, timeStr, requestIndex, onViewRequest }) {
+  const viewBtn = (requestIndex != null && onViewRequest) ? (
+    <span className={styles.viewRequestBtn} onClick={(e) => { e.stopPropagation(); onViewRequest(requestIndex); }}>
+      {t('ui.viewRequest')}
+    </span>
+  ) : null;
+  return (
+    <div className={styles.labelRow}>
+      <Text type="secondary" className={styles.labelText}>{name}{extra || ''}</Text>
+      <span className={styles.labelRight}>
+        {viewBtn}
+        {timeStr && <Text className={styles.timeText}>{timeStr}</Text>}
+      </span>
+    </div>
+  );
+});
+
 
 class ChatMessage extends React.Component {
   constructor(props) {
@@ -839,7 +871,7 @@ class ChatMessage extends React.Component {
               <MarkdownBlock text={thinkingText} trailingCursor={isCursorTarget} />
             ),
           }]}
-          className={styles.collapseMargin}
+          className={`${styles.collapseMargin}${showTC ? ' ' + styles.collapseStream : ''}`}
         />
       );
     });
@@ -949,16 +981,21 @@ class ChatMessage extends React.Component {
   }
 
   renderAssistantMessage() {
-    const { content, toolResultMap = {}, modelInfo } = this.props;
+    const { content, toolResultMap = {}, modelInfo, timestamp, requestIndex, onViewRequest } = this.props;
     const innerContent = this.renderAssistantContent(content, toolResultMap);
 
     if (innerContent.length === 0) return null;
 
     return (
       <div className={styles.messageRow}>
-        {this.renderModelAvatar(modelInfo)}
+        <ModelAvatar modelInfo={modelInfo} />
         <div className={styles.contentCol}>
-          {this.renderLabel(modelInfo?.name || 'MainAgent')}
+          <AssistantLabel
+            name={modelInfo?.name || 'MainAgent'}
+            timeStr={this.formatTime(timestamp)}
+            requestIndex={requestIndex}
+            onViewRequest={onViewRequest}
+          />
           {this.renderHighlightBubble(styles.bubbleAssistant, innerContent)}
         </div>
       </div>

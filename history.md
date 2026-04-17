@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.6.162 (2026-04-17)
+
+- Perf: SSE smooth sticky follow — `ChatView.jsx` replaces per-chunk instant `scrollTop = scrollHeight` with rAF easeOut loop (each frame consumes ~35% of gap, clamped 1~120px); eliminates visible viewport jump on newline, dramatically smoother typewriter effect
+- Perf: `.streamingTail` stabilization — adds `contain: layout style` and `min-height` on common streaming leaf elements; reduces reflow chain when marked re-parses partial markdown
+- Perf: streaming thinking auto-collapse softened — `.collapseStream` scoped CSS overrides antd Collapse transition to 600ms easeOutCubic with body opacity fade-out; non-streaming Collapse keeps default 200ms response unchanged
+- Perf: cursor fade-in — `cursorEnter` 40ms ease-out animation smooths `::after` cursor hard-appear at block-structure transitions
+- Perf: AppHeader `renderTokenStats` lazy via Popover function content — `<Popover content={() => this.renderTokenStats()}>` only invokes on open; previously ran on every AppHeader re-render. Eliminates the 3x O(N) aggregations (token / tool / skill stats) and large JSX subtree construction when popover is closed
+- Perf: AppHeader `renderTokenStats` instance-level memoization — `===` compare on `requests` / `cacheHighlightIdx` / `cacheHighlightFading` returns cached JSX on hit; perf trace confirms ~98% reduction in stack samples when popover stays open across many re-renders
+- Perf: AppHeader countdown loop — `requestAnimationFrame` recursion at 60fps replaced by `setTimeout` aligned to next-second boundary (`1000 - now % 1000`); eliminates ~1900 profiler samples and frees up rAF queue for actual animations
+- Perf: ChatMessage avatar / label memo extraction — new `ModelAvatar` and `AssistantLabel` `React.memo` components with stable props (`modelInfo` / `name` / `timeStr` / `requestIndex` / `onViewRequest`) bail out during SSE chunks when only content changes
+- Refactor: `_teardownTransientLiveState` helper in `AppBase.jsx` consolidates transient live-state cleanup (`_pendingEntries` / `_flushRafId` / `_streamingOffTimer` / `_loadingCountRafId` / `_chunkedEntries` / `_chunkedTotal` / `_isIncremental` / `_sseSlimmer` / `_sseReconstructor`); called from `workspace_stopped` / `handleReturnToWorkspaces` / `_reconnectSSE` to prevent old-workspace entries from flushing into new state. Does NOT close EventSource — connection is session-level singleton reused across workspaces
+
 ## 1.6.161 (2026-04-17)
 
 - Feat: SSE live typewriter effect for latest assistant message in PTY mode — `lib/interceptor-core.js` exports `createStreamAssembler` for incremental SSE parsing; `interceptor.js` adds throttled HTTP POST (100ms / 16KB / content_block_stop) to new `/api/stream-chunk` endpoint; `server.js` broadcasts via dedicated `stream-progress` named SSE event; `AppBase.jsx` adds `streamingLatest` state; `ChatView.jsx` renders live overlay that occupies Last Response position (scheme C) with pendingBubble above it; mainAgent only, Teammate / sub-agent / SDK mode unchanged

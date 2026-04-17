@@ -81,6 +81,21 @@
   color: var(--text-primary);
 }
 
+/* 流式容器局部化布局/样式计算，减少整页 reflow，缓解结构变化（如换行产生新块）
+   时视觉抖动感。contain: layout style 让浏览器把该子树视为独立布局单元。 */
+.streamingTail {
+  contain: layout style;
+}
+
+/* 末段 min-height 稳定：marked 流式解析半途可能短暂出现空 <p></p>，没有 min-height
+   会导致末行高度在一帧内由 0→1lh 抖一下。给常见末端块级元素兜底最小高度。 */
+.streamingTail > p:last-child,
+.streamingTail > ol:last-child > li:last-child,
+.streamingTail > ul:last-child > li:last-child,
+.streamingTail > blockquote:last-child {
+  min-height: 1.4em;
+}
+
 /* 流式光标：贴在流式 overlay 最后一个 MarkdownBlock 的最深叶子元素末尾。
    多选择器覆盖常见 markdown 末尾结构（段落 / 列表末 li / 代码块末行 /
    引用 / 表格最后一个单元格）。:not(:empty) 过滤 marked 流式半途产生的空 <p></p>，
@@ -98,10 +113,18 @@
   display: inline-block;
   margin-left: 4px;
   color: var(--color-primary, #0969DA);
-  animation: cursorBlinkInline 1s step-end infinite;
+  /* cursorEnter: 40ms 极短淡入，缓和结构切换时光标硬现到新位置的硬闪；
+     cursorBlinkInline: 常规闪烁。淡入完成后接入闪烁，两段独立时间轴。
+     40ms 约 2~3 帧，小于典型 chunk 节流 (100ms)，不会与 chunk 重绘反复叠加。 */
+  animation: cursorEnter 40ms ease-out, cursorBlinkInline 1s step-end infinite 40ms;
   user-select: none;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   vertical-align: baseline;
+}
+
+@keyframes cursorEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes cursorBlinkInline {

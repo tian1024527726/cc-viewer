@@ -339,26 +339,11 @@ class ChatView extends React.Component {
     }
     // Last Response 出现/消失时，Footer 高度变化会导致 Virtuoso atBottom 误判，需要重新吸底
     if (useVirtuoso && prevState.lastResponseItems !== this.state.lastResponseItems && this.state.stickyBottom) {
-      this._stickyScrollLock = true;
-      requestAnimationFrame(() => {
-        const scroller = this._virtuosoScrollerEl;
-        if (scroller) scroller.scrollTop = scroller.scrollHeight;
-        requestAnimationFrame(() => { this._stickyScrollLock = false; });
-      });
+      this._startSmoothStickyFollow(true);
     }
-    // 同样：Live streaming overlay 变化时也要重新吸底。
-    // Footer / container 高度由 streamingLiveItem 递增驱动，Virtuoso ResizeObserver
-    // 与普通浏览器 layout 都是异步的，单 rAF 可能拿到旧 scrollHeight，用双 rAF 兜底。
-    // 桌面端 (useVirtuoso=false) 走 containerRef，移动端 (useVirtuoso=true) 走 Virtuoso scroller。
+    // 同样：Live streaming overlay 变化时也要重新吸底（丝滑缓动，避免每个 chunk 画面硬跳）。
     if (prevProps.streamingLatest !== this.props.streamingLatest && this.state.stickyBottom) {
-      this._stickyScrollLock = true;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const scroller = useVirtuoso ? this._virtuosoScrollerEl : this.containerRef.current;
-          if (scroller) scroller.scrollTop = scroller.scrollHeight;
-          this._stickyScrollLock = false;
-        });
-      });
+      this._startSmoothStickyFollow(useVirtuoso);
     }
     // Streaming border fade-out: when isStreaming goes from true to false, trigger fade
     if (prevProps.isStreaming && !this.props.isStreaming) {
@@ -487,6 +472,10 @@ class ChatView extends React.Component {
     this._pendingHookAnswers = null;
     this._unbindScrollFade();
     if (!useVirtuoso) this._unbindStickyScroll();
+    if (this._smoothFollowRafId) {
+      cancelAnimationFrame(this._smoothFollowRafId);
+      this._smoothFollowRafId = null;
+    }
     if (this._inputWs) {
       this._inputWs.close();
       this._inputWs = null;
@@ -631,6 +620,36 @@ class ChatView extends React.Component {
         const el = this.containerRef.current;
         if (el) el.scrollTop = el.scrollHeight;
       }
+    });
+  };
+
+  // rAF 缓动吸底：流式 chunk 抵达后用 easeOut 平滑追底，避免每帧 scrollTop=scrollHeight
+  // 带来的硬跳与换行抖动。gap<=0.5 停止；新 chunk 到达会续约（cancel 旧 rAF 重启循环）。
+  _startSmoothStickyFollow = (useVirtuoso) => {
+    const scroller = useVirtuoso ? this._virtuosoScrollerEl : this.containerRef.current;
+    if (!scroller) return;
+    this._stickyScrollLock = true;
+    if (this._smoothFollowRafId) cancelAnimationFrame(this._smoothFollowRafId);
+    const step = () => {
+      this._smoothFollowRafId = null;
+      if (this._unmounted) { this._stickyScrollLock = false; return; }
+      if (!this.state.stickyBottom) { this._stickyScrollLock = false; return; }
+      const target = scroller.scrollHeight - scroller.clientHeight;
+      const current = scroller.scrollTop;
+      const gap = target - current;
+      if (gap <= 0.5) {
+        scroller.scrollTop = target;
+        this._stickyScrollLock = false;
+        return;
+      }
+      // easeOut：每帧吃 35% gap，最小 1px，最大 120px（防极端高度突增瞬移感）
+      const delta = Math.max(1, Math.min(gap * 0.35, 120));
+      scroller.scrollTop = current + delta;
+      this._smoothFollowRafId = requestAnimationFrame(step);
+    };
+    // 先让新内容 layout 完成再测量（原实现用双 rAF 正是为此）
+    this._smoothFollowRafId = requestAnimationFrame(() => {
+      this._smoothFollowRafId = requestAnimationFrame(step);
     });
   };
 
@@ -2811,10 +2830,10 @@ class ChatView extends React.Component {
             toolResultMap={EMPTY_MAP}
           />
         );
-        // 方案 C：流式 overlay 活跃时隐藏 Last Response（上一轮），让 overlay 独占其视觉位置，
-        // 避免上下双区叠加造成纵向画面弹动。流式结束 streamingLatest 原子清除后，
-        // Last Response 被新 entry 接管显示本轮完整内容，过渡自然。
-        filteredLastResponseItems = null;
+        // 方案 D：保留 Last Response（上一轮）显示让用户能对比参考，仅通过 CSS 隐藏
+        // "---Last Response---" Divider 标识避免与 overlay 的"正在生成"语义重复。
+        // 两处渲染点（Virtuoso Footer 与非 Virtuoso 容器）把 filteredLastResponseItems
+        // 外包一层条件 div (styles.hideLastResponseDivider)，子 CSS display:none 掉 Divider。
       }
     }
 
@@ -2897,7 +2916,11 @@ class ChatView extends React.Component {
                 </circle>
               </svg>
             </div>
-          {filteredLastResponseItems}{pendingBubble}{streamingLiveItem && (
+          {filteredLastResponseItems && (
+            <div className={streamingLiveItem ? styles.hideLastResponseDivider : undefined}>
+              {filteredLastResponseItems}
+            </div>
+          )}{pendingBubble}{streamingLiveItem && (
             !filteredLastResponseItems && targetIdx != null && targetIdx >= visible.length
               ? <div key="stream-resp-anchor" ref={this._scrollTargetRef}>{streamingLiveItem}</div>
               : streamingLiveItem
@@ -2970,9 +2993,11 @@ class ChatView extends React.Component {
               </svg>
             </div>
             {filteredLastResponseItems && (
-              targetIdx != null && targetIdx >= visible.length
-                ? <div key="last-resp-anchor" ref={this._scrollTargetRef}>{filteredLastResponseItems}</div>
-                : filteredLastResponseItems
+              <div className={streamingLiveItem ? styles.hideLastResponseDivider : undefined}>
+                {targetIdx != null && targetIdx >= visible.length
+                  ? <div key="last-resp-anchor" ref={this._scrollTargetRef}>{filteredLastResponseItems}</div>
+                  : filteredLastResponseItems}
+              </div>
             )}
             {pendingBubble}
             {streamingLiveItem && (
