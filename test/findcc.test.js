@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { buildShellCandidates, getGlobalNodeModulesDir } from '../findcc.js';
+import { mkdirSync, writeFileSync, mkdtempSync, rmSync, chmodSync, symlinkSync } from 'node:fs';
+import { buildShellCandidates, getGlobalNodeModulesDir, findPackagedBinary } from '../findcc.js';
 
 // Test resolveLogDir by spawning a subprocess with different CCV_LOG_DIR values.
 // This avoids module cache busting which dilutes coverage.
@@ -76,5 +77,121 @@ describe('findcc: getGlobalNodeModulesDir', () => {
   it('returns a string or null', () => {
     const result = getGlobalNodeModulesDir();
     assert.ok(result === null || typeof result === 'string');
+  });
+});
+
+describe('findcc: findPackagedBinary', () => {
+  it('returns null for null/empty root', () => {
+    assert.equal(findPackagedBinary(null), null);
+    assert.equal(findPackagedBinary(''), null);
+  });
+
+  it('returns null when no matching package exists', () => {
+    const root = mkdtempSync(join(tmpdir(), 'findcc-empty-'));
+    try {
+      assert.equal(findPackagedBinary(root), null);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('finds bin/claude.exe inside @anthropic-ai/claude-code (2.x layout)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'findcc-exe-'));
+    try {
+      const binDir = join(root, '@anthropic-ai', 'claude-code', 'bin');
+      mkdirSync(binDir, { recursive: true });
+      const binPath = join(binDir, 'claude.exe');
+      writeFileSync(binPath, '#!/bin/sh\nexit 0\n');
+      chmodSync(binPath, 0o755);
+      assert.equal(findPackagedBinary(root), binPath);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('finds bin/claude (unix name) as a secondary option', () => {
+    const root = mkdtempSync(join(tmpdir(), 'findcc-nix-'));
+    try {
+      const binDir = join(root, '@anthropic-ai', 'claude-code', 'bin');
+      mkdirSync(binDir, { recursive: true });
+      const binPath = join(binDir, 'claude');
+      writeFileSync(binPath, '#!/bin/sh\nexit 0\n');
+      chmodSync(binPath, 0o755);
+      assert.equal(findPackagedBinary(root), binPath);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('prefers the primary (@anthropic-ai) package over the fallback (@ali)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'findcc-both-'));
+    try {
+      for (const pkg of ['@anthropic-ai/claude-code', '@ali/claude-code']) {
+        const binDir = join(root, pkg, 'bin');
+        mkdirSync(binDir, { recursive: true });
+        writeFileSync(join(binDir, 'claude.exe'), '#!/bin/sh\nexit 0\n');
+      }
+      const found = findPackagedBinary(root);
+      assert.ok(found.includes('@anthropic-ai'), `expected @anthropic-ai win, got ${found}`);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+// Subprocess helper: run resolveNativePath() with a controlled PATH.
+// The shim dir has a `claude` symlink to `realTarget`; the subprocess
+// has only shimDir:/usr/bin:/bin on its PATH.
+function runResolveNativePath({ shimDir, realTarget }) {
+  return execFileSync(process.execPath, [
+    '--input-type=module',
+    '-e',
+    `import { resolveNativePath } from './findcc.js'; process.stdout.write(String(resolveNativePath()));`,
+  ], {
+    cwd: join(import.meta.dirname, '..'),
+    encoding: 'utf-8',
+    env: { PATH: `${shimDir}:/usr/bin:/bin`, HOME: '/nonexistent-home-for-test' },
+    timeout: 5000,
+  });
+}
+
+describe('findcc: resolveNativePath rejection rules (the actual bug fix)', () => {
+  it('ACCEPTS a non-.js binary whose realpath is under node_modules (Claude Code 2.x layout)', () => {
+    const base = mkdtempSync(join(tmpdir(), 'findcc-native-ok-'));
+    const shimDir = join(base, 'shim');
+    const realDir = join(base, 'node_modules', '@anthropic-ai', 'claude-code', 'bin');
+    mkdirSync(shimDir, { recursive: true });
+    mkdirSync(realDir, { recursive: true });
+    const realBin = join(realDir, 'claude.exe');
+    writeFileSync(realBin, '#!/bin/sh\nexit 0\n');
+    chmodSync(realBin, 0o755);
+    const shim = join(shimDir, 'claude');
+    symlinkSync(realBin, shim);
+    try {
+      const out = runResolveNativePath({ shimDir, realTarget: realBin });
+      assert.equal(out, shim, `expected shim path returned, got ${out}`);
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+  it('REJECTS a .js file under node_modules (legacy cli.js path, handled by resolveNpmClaudePath instead)', () => {
+    const base = mkdtempSync(join(tmpdir(), 'findcc-native-skip-'));
+    const shimDir = join(base, 'shim');
+    const realDir = join(base, 'node_modules', '@anthropic-ai', 'claude-code');
+    mkdirSync(shimDir, { recursive: true });
+    mkdirSync(realDir, { recursive: true });
+    const cliJs = join(realDir, 'cli.js');
+    writeFileSync(cliJs, '#!/usr/bin/env node\n');
+    chmodSync(cliJs, 0o755);
+    const shim = join(shimDir, 'claude');
+    symlinkSync(cliJs, shim);
+    try {
+      const out = runResolveNativePath({ shimDir, realTarget: cliJs });
+      // 期望 resolveNativePath 跳过该 shim；没有其他 fallback 命中时返回 "null"
+      assert.notEqual(out, shim, `.js shim should be skipped, but it was returned: ${out}`);
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
   });
 });

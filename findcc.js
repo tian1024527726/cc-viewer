@@ -147,11 +147,12 @@ export function resolveNativePath() {
       const result = execSync(cmd, { encoding: 'utf-8', shell: true, env: process.env }).trim();
       // 排除 shell function 的输出（多行说明不是路径）
       if (result && !result.includes('\n') && existsSync(result)) {
-        // 排除 npm 安装的符号链接（解析后指向 node_modules）
-        try {
-          const real = realpathSync(result);
-          if (real.includes('node_modules')) continue;
-        } catch { }
+        // 只排除 .js 文件（老版本 npm 分发的 cli.js，需要 node 运行，
+        // 由 resolveNpmClaudePath 处理）。Claude Code 2.x+ 的 npm 包内
+        // 直接打包了原生二进制（bin/claude.exe），应当作 native 处理。
+        let real = result;
+        try { real = realpathSync(result); } catch { }
+        if (real.endsWith('.js')) continue;
         return result;
       }
     } catch {
@@ -170,6 +171,25 @@ export function resolveNativePath() {
     }
   }
 
+  // 3. 兜底：直接在 npm 全局包中查找 bin/claude(.exe)
+  //    适用于 PATH 上没有 claude shim 但 npm 包已安装的场景
+  const globalRoot = getGlobalNodeModulesDir();
+  const inPkg = findPackagedBinary(globalRoot);
+  if (inPkg) return inPkg;
+
+  return null;
+}
+
+// 在给定的 node_modules 根目录下扫描 PACKAGES 里每个候选包的 bin/claude(.exe)
+// 导出以便测试；生产代码通过 resolveNativePath 调用。
+export function findPackagedBinary(nodeModulesRoot) {
+  if (!nodeModulesRoot) return null;
+  for (const pkg of PACKAGES) {
+    for (const name of ['claude.exe', 'claude']) {
+      const p = join(nodeModulesRoot, pkg, 'bin', name);
+      if (existsSync(p)) return p;
+    }
+  }
   return null;
 }
 
