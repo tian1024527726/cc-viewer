@@ -9,6 +9,21 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 // ============ 配置区（第三方适配只需修改此处）============
 
+/**
+ * Resolve Claude Code config directory.
+ * Third-party wrappers may set CLAUDE_CONFIG_DIR to redirect
+ * Claude Code's config from ~/.claude/ to a custom location.
+ * @returns {string} absolute path to the Claude config directory
+ */
+export function getClaudeConfigDir() {
+  const envDir = process.env.CLAUDE_CONFIG_DIR;
+  if (envDir && typeof envDir === 'string' && envDir.trim()) {
+    const raw = envDir.trim();
+    return raw.startsWith('~/') ? join(homedir(), raw.slice(2)) : resolve(raw);
+  }
+  return join(homedir(), '.claude');
+}
+
 function resolveLogDir() {
   const envDir = process.env.CCV_LOG_DIR;
   if (typeof envDir === 'string' && envDir.trim()) {
@@ -20,7 +35,7 @@ function resolveLogDir() {
     const expanded = raw.startsWith('~/') ? join(homedir(), raw.slice(2)) : raw;
     return resolve(expanded);
   }
-  return join(homedir(), '.claude', 'cc-viewer');
+  return join(getClaudeConfigDir(), 'cc-viewer');
 }
 
 // 日志存储根目录（所有项目日志、偏好设置均存放于此）

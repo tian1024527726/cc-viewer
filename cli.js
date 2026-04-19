@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { t } from './i18n.js';
-import { INJECT_IMPORT, resolveCliPath, resolveNativePath, resolveNpmClaudePath, buildShellCandidates, setLogDir, LOG_DIR, hasClaude2xWrapper, getGlobalNodeModulesDir, PACKAGES } from './findcc.js';
+import { INJECT_IMPORT, resolveCliPath, resolveNativePath, resolveNpmClaudePath, buildShellCandidates, setLogDir, LOG_DIR, hasClaude2xWrapper, getGlobalNodeModulesDir, PACKAGES, getClaudeConfigDir } from './findcc.js';
 import { ensureHooks } from './lib/ensure-hooks.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -650,7 +650,7 @@ if (isUninstall) {
 
   // 清理 statusLine 配置和脚本（兼容历史版本遗留）
   try {
-    const settingsPath = resolve(homedir(), '.claude', 'settings.json');
+    const settingsPath = resolve(getClaudeConfigDir(), 'settings.json');
     if (existsSync(settingsPath)) {
       const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
       if (settings.statusLine?.command?.includes('ccv-statusline')) {
@@ -659,13 +659,13 @@ if (isUninstall) {
         console.log('Cleaned statusLine config from settings.json');
       }
     }
-    const ccvScript = resolve(homedir(), '.claude', 'ccv-statusline.sh');
+    const ccvScript = resolve(getClaudeConfigDir(), 'ccv-statusline.sh');
     if (existsSync(ccvScript)) {
       unlinkSync(ccvScript);
       console.log('Removed ccv-statusline.sh');
     }
     // 清理 context-window.json
-    const ctxFile = resolve(homedir(), '.claude', 'context-window.json');
+    const ctxFile = resolve(getClaudeConfigDir(), 'context-window.json');
     if (existsSync(ctxFile)) {
       unlinkSync(ctxFile);
     }

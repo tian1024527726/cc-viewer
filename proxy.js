@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { setupInterceptor } from './interceptor.js';
 import { extractApiErrorMessage, formatProxyRequestError } from './lib/proxy-errors.js';
+import { getClaudeConfigDir } from './findcc.js';
 
 // Setup interceptor to patch fetch
 setupInterceptor();
@@ -33,7 +34,7 @@ function getOriginalBaseUrl() {
     configPaths.push(join(cwd, '.claude', 'settings.local.json'));
     configPaths.push(join(cwd, '.claude', 'settings.json'));
   }
-  configPaths.push(join(homedir(), '.claude', 'settings.json'));
+  configPaths.push(join(getClaudeConfigDir(), 'settings.json'));
 
   for (const configPath of configPaths) {
     const url = getBaseUrlFromSettings(configPath);

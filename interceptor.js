@@ -11,7 +11,7 @@ import http from 'node:http';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, basename } from 'node:path';
-import { LOG_DIR } from './findcc.js';
+import { LOG_DIR, getClaudeConfigDir } from './findcc.js';
 import { assembleStreamMessage, createStreamAssembler, cleanupTempFiles, findRecentLog, isAnthropicApiPath, isMainAgentRequest, rotateLogFile } from './lib/interceptor-core.js';
 
 
@@ -45,7 +45,7 @@ export let _cachedModel = null;
 export let _cachedHaikuModel = null;
 
 // Proxy profile hot-switch support
-const PROFILE_PATH = join(homedir(), '.claude', 'cc-viewer', 'profile.json');
+const PROFILE_PATH = join(getClaudeConfigDir(), 'cc-viewer', 'profile.json');
 let _activeProfile = null; // { id, name, baseURL?, apiKey?, models?, activeModel? }
 
 // 启动时捕获的原始配置（首次 API 请求时记录，不可变）

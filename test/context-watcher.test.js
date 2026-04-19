@@ -2,10 +2,10 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import { homedir } from 'node:os';
 import { readModelContextSize, buildContextWindowEvent, CONTEXT_WINDOW_FILE } from '../lib/context-watcher.js';
+import { getClaudeConfigDir } from '../findcc.js';
 
-const CLAUDE_DIR = join(homedir(), '.claude');
+const CLAUDE_DIR = getClaudeConfigDir();
 
 // 备份和恢复 context-window.json
 let savedContextFile = null;

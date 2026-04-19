@@ -46,6 +46,7 @@ describe('findcc: resolveLogDir', () => {
   });
 
   it('defaults to ~/.claude/cc-viewer when env is empty', () => {
+    const { CLAUDE_CONFIG_DIR: _, CCV_LOG_DIR: __, ...cleanEnv } = process.env;
     const result = execFileSync(process.execPath, [
       '--input-type=module',
       '-e',
@@ -53,10 +54,24 @@ describe('findcc: resolveLogDir', () => {
     ], {
       cwd: join(import.meta.dirname, '..'),
       encoding: 'utf-8',
-      env: { ...process.env, CCV_LOG_DIR: '' },
+      env: { ...cleanEnv, CCV_LOG_DIR: '' },
       timeout: 5000,
     });
     assert.equal(result, join(homedir(), '.claude', 'cc-viewer'));
+  });
+
+  it('respects CLAUDE_CONFIG_DIR for default LOG_DIR', () => {
+    const result = execFileSync(process.execPath, [
+      '--input-type=module',
+      '-e',
+      `import { LOG_DIR } from './findcc.js'; process.stdout.write(LOG_DIR);`,
+    ], {
+      cwd: join(import.meta.dirname, '..'),
+      encoding: 'utf-8',
+      env: { ...process.env, CCV_LOG_DIR: '', CLAUDE_CONFIG_DIR: '/tmp/custom-claude' },
+      timeout: 5000,
+    });
+    assert.equal(result, '/tmp/custom-claude/cc-viewer');
   });
 });
 

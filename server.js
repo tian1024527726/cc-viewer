@@ -35,7 +35,7 @@ function execWithStdin(cmd, args, input, options) {
   });
 }
 import { LOG_FILE, _initPromise, _resumeState, resolveResumeChoice, _projectName, _logDir, _cachedApiKey, _cachedAuthHeader, _cachedHaikuModel, initForWorkspace, resetWorkspace, streamingState, resetStreamingState, _loadProxyProfile, PROFILE_PATH, _defaultConfig, setLivePort } from './interceptor.js';
-import { LOG_DIR, setLogDir } from './findcc.js';
+import { LOG_DIR, setLogDir, getClaudeConfigDir } from './findcc.js';
 import { t, detectLanguage } from './i18n.js';
 import { checkAndUpdate } from './lib/updater.js';
 import { loadPlugins, runWaterfallHook, runParallelHook, getPluginsInfo, getPluginsDir } from './lib/plugin-loader.js';
@@ -55,7 +55,7 @@ function getPrefsFile() { return join(LOG_DIR, 'preferences.json'); }
 // 启动时一次性读取 ~/.claude/settings.json（不 watch）
 let claudeSettings = {};
 try {
-  const settingsPath = join(homedir(), '.claude', 'settings.json');
+  const settingsPath = join(getClaudeConfigDir(), 'settings.json');
   if (existsSync(settingsPath)) {
     claudeSettings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
   }
@@ -345,7 +345,7 @@ async function handleRequest(req, res) {
         let persistPath = null;
         try {
           const pName = _projectName || 'default';
-          const persistDir = join(homedir(), '.claude', 'cc-viewer', pName, 'images');
+          const persistDir = join(getClaudeConfigDir(), 'cc-viewer', pName, 'images');
           mkdirSync(persistDir, { recursive: true });
           persistPath = join(persistDir, uniqueName);
           writeFileSync(persistPath, fileData);
@@ -1070,7 +1070,7 @@ async function handleRequest(req, res) {
     req.on('end', () => {
       try {
         const incoming = JSON.parse(body);
-        const settingsPath = join(homedir(), '.claude', 'settings.json');
+        const settingsPath = join(getClaudeConfigDir(), 'settings.json');
         let settings = {};
         try { if (existsSync(settingsPath)) settings = JSON.parse(readFileSync(settingsPath, 'utf-8')); } catch { }
         Object.assign(settings, incoming);
@@ -2087,7 +2087,7 @@ async function handleRequest(req, res) {
       // 上传图片路径（/tmp/cc-viewer-uploads/ 或持久化目录）直接使用，跳过项目目录安全检查
       const uploadPrefix = '/tmp/cc-viewer-uploads/';
       const pName = _projectName || 'default';
-      const persistPrefix = join(homedir(), '.claude', 'cc-viewer', pName, 'images') + '/';
+      const persistPrefix = join(getClaudeConfigDir(), 'cc-viewer', pName, 'images') + '/';
       let targetFile;
       if (reqPath && reqPath.startsWith(uploadPrefix)) {
         targetFile = resolve(reqPath);

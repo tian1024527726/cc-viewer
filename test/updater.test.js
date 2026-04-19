@@ -5,10 +5,11 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { checkAndUpdate } from '../lib/updater.js';
+import { getClaudeConfigDir } from '../findcc.js';
 
-const CACHE_DIR = join(homedir(), '.claude', 'cc-viewer');
+const CACHE_DIR = join(getClaudeConfigDir(), 'cc-viewer');
 const CACHE_FILE = join(CACHE_DIR, 'update-check.json');
-const CC_SETTINGS_FILE = join(homedir(), '.claude', 'settings.json');
+const CC_SETTINGS_FILE = join(getClaudeConfigDir(), 'settings.json');
 
 // Save/restore helpers for cache file
 let savedCache = null;
@@ -62,7 +63,7 @@ function enableAutoUpdates() {
       settings = JSON.parse(readFileSync(CC_SETTINGS_FILE, 'utf-8'));
     }
     delete settings.autoUpdates;
-    mkdirSync(join(homedir(), '.claude'), { recursive: true });
+    mkdirSync(getClaudeConfigDir(), { recursive: true });
     writeFileSync(CC_SETTINGS_FILE, JSON.stringify(settings, null, 2));
   } catch { }
 }
@@ -114,7 +115,7 @@ describe('checkAndUpdate — disabled via settings', () => {
   });
 
   it('returns disabled when settings.json has autoUpdates: false', async () => {
-    mkdirSync(join(homedir(), '.claude'), { recursive: true });
+    mkdirSync(getClaudeConfigDir(), { recursive: true });
     writeFileSync(CC_SETTINGS_FILE, JSON.stringify({ autoUpdates: false }));
     const result = await checkAndUpdate();
     assert.equal(result.status, 'disabled');
