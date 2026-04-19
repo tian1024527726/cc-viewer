@@ -160,6 +160,12 @@ class DetailPanel extends React.Component {
     }
   }
 
+  getCurrentRequest() {
+    const { request, allRequests, requests } = this.props;
+    if (!request) return null;
+    return request._slimmed ? restoreSlimmedEntry(request, allRequests || requests || []) : request;
+  }
+
   toggleBodyViewMode(type) {
     this.setState(prev => ({
       bodyViewMode: {
@@ -170,7 +176,7 @@ class DetailPanel extends React.Component {
   }
 
   copyBody(type) {
-    const { request } = this.props;
+    const request = this.getCurrentRequest();
     if (!request) return;
     let data;
     if (type === 'diff') {
@@ -395,7 +401,8 @@ class DetailPanel extends React.Component {
   }
 
   render() {
-    let { request, currentTab, onTabChange } = this.props;
+    let request = this.getCurrentRequest();
+    const { currentTab, onTabChange } = this.props;
 
     if (!request) {
       return (
@@ -403,11 +410,6 @@ class DetailPanel extends React.Component {
           <Empty description="选择一个请求查看详情" />
         </div>
       );
-    }
-
-    // 按需还原被剪枝的老格式 entry 的 messages（不修改 state）
-    if (request._slimmed) {
-      request = restoreSlimmedEntry(request, this.props.allRequests || this.props.requests);
     }
 
     const time = new Date(request.timestamp).toLocaleString('zh-CN');
